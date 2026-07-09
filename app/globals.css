@@ -1,26 +1,211 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* ── Backgrounds ──────────────────────────────────────── */
+  --color-ink:       #050507;
+  --color-charcoal:  #0a0b0e;
+  --color-charcoal-2:#101217;
+  --color-line:      rgba(255, 255, 255, 0.08);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* ── Brand accents (pixel-sampled from Netlink logo) ──── */
+  --color-neon:       #0dfdd1;   /* exact turquoise                     */
+  --color-neon-soft:  #62ffed;   /* lighter aqua for gradient end       */
+  --color-cyan:       #22d3ee;   /* secondary blue-cyan                 */
+  --color-electric:   #0891b2;   /* deep teal, tertiary                 */
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-fg:    #f4f6f5;
+  --color-muted: #9aa3ad;
+
+  /* ── Typography ───────────────────────────────────────── */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ── Animations ───────────────────────────────────────── */
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-glow:    glow    9s ease-in-out infinite;
+  --animate-float:   float   6s ease-in-out infinite;
+  --animate-pulse-slow: pulse-slow 3s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Keyframes ──────────────────────────────────────────────────────────────── */
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.35; transform: translate3d(0, 0, 0); }
+  50%       { opacity: 0.6;  transform: translate3d(0, -2%, 0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0);    }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1;  }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────────── */
+
+:root { color-scheme: dark; }
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  background-color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Utilities ───────────────────────────────────────────────────────────────── */
+
+/* Dotted grid backdrop */
+.bg-grid {
+  background-image: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px
+  );
+  background-size: 32px 32px;
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(
+    100deg,
+    var(--color-neon)  0%,
+    var(--color-cyan)  55%,
+    var(--color-electric) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Shimmer text (for accent headlines) */
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-neon),
+    var(--color-neon-soft),
+    var(--color-cyan),
+    var(--color-neon)
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Glassmorphic surface */
+.glass {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.065) 0%,
+    rgba(255, 255, 255, 0.02)  100%
+  );
+  border: 1px solid var(--color-line);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Neon ring glow */
+.ring-glow {
+  box-shadow:
+    0 0 0 1px rgba(13, 253, 209, 0.35),
+    0 20px 60px -20px rgba(13, 253, 209, 0.35);
+}
+
+/* Neon card glow (used on featured cards) */
+.card-glow {
+  box-shadow:
+    0 0 0 1px rgba(13, 253, 209, 0.12),
+    0 8px 32px -8px rgba(13, 253, 209, 0.18),
+    0 32px 80px -32px rgba(13, 253, 209, 0.08);
+}
+
+/* Marquee edge fade */
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+}
+
+/* Section separator neon line */
+.section-rule {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(13, 253, 209, 0.25) 30%,
+    rgba(13, 253, 209, 0.25) 70%,
+    transparent
+  );
+}
+
+::selection {
+  background: rgba(13, 253, 209, 0.22);
+  color: #fff;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 8px; }
+::-webkit-scrollbar-track  { background: var(--color-ink); }
+::-webkit-scrollbar-thumb  { background: #1e2126; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #2a2e37; }
+
+/* ── Scroll offset for fixed navbar ─────────────────────────────────────────── */
+/* Keeps section headings from hiding behind the 64px navbar on anchor jump.    */
+[id] { scroll-margin-top: 4.5rem; }
+
+/* ── Mobile touch scrolling ─────────────────────────────────────────────────── */
+/* Smooth momentum scroll inside overflow containers on iOS Safari.              */
+.overflow-x-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Mobile tap highlight removal ───────────────────────────────────────────── */
+@media (max-width: 767px) {
+  a, button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ── Reduced-motion safety net ───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:       0.001ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:      0.001ms !important;
+    scroll-behavior: auto             !important;
+  }
 }
