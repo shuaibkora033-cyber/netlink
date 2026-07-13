@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { process } from "@/lib/content";
+import type { GrowthStep } from "@/lib/data/homepage";
 import { SectionHeading } from "./ui/SectionHeading";
 import { Reveal } from "./ui/Reveal";
 
@@ -20,7 +21,7 @@ const STEP_GLOW_COLORS = [
   "bg-neon/15",
 ];
 
-export function GrowthSystem() {
+export function GrowthSystem({ steps }: { steps: GrowthStep[] }) {
   return (
     <section
       id="process"
@@ -48,7 +49,7 @@ export function GrowthSystem() {
           />
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {process.steps.map((step, i) => (
+            {steps.map((step, i) => (
               <Reveal key={step.num} index={i}>
                 <motion.div
                   whileHover={{ y: -4 }}
@@ -107,7 +108,7 @@ export function GrowthSystem() {
                   </p>
 
                   {/* Arrow to next step (desktop) */}
-                  {i < process.steps.length - 1 && (
+                  {i < steps.length - 1 && (
                     <span
                       aria-hidden
                       className="absolute -right-3 top-[1.35rem] z-20 hidden text-muted/30 lg:block"

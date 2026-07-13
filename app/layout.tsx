@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { getThemeSettings } from "@/lib/data/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,15 +54,24 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const theme = await getThemeSettings();
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      style={
+        {
+          "--color-neon": theme.primaryColor,
+          "--color-cyan": theme.secondaryColor,
+          "--color-ink": theme.backgroundColor,
+        } as React.CSSProperties
+      }
     >
       <body className="min-h-full">{children}</body>
     </html>

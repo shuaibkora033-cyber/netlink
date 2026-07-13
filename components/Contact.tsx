@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
-import { contact, site } from "@/lib/content";
+import type { FinalCta } from "@/lib/data/homepage";
+import { toTelHref } from "@/lib/data/theme";
 import { Reveal } from "./ui/Reveal";
 import { GlowBackground } from "./ui/GlowBackground";
 
@@ -17,7 +18,17 @@ function CheckIcon() {
   );
 }
 
-export function Contact() {
+export function Contact({
+  finalCta,
+  contactEmail,
+  phoneNumber,
+  buttonText,
+}: {
+  finalCta: FinalCta;
+  contactEmail: string;
+  phoneNumber: string;
+  buttonText: string;
+}) {
   const [sent, setSent] = useState(false);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -42,26 +53,26 @@ export function Contact() {
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-neon/25 bg-neon/5 px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-neon">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neon" />
-              {contact.eyebrow}
+              {finalCta.eyebrow}
             </span>
           </Reveal>
 
           <Reveal index={1}>
             <h2 className="mt-5 text-balance text-2xl font-semibold tracking-tight sm:text-3xl md:text-[2.75rem] md:leading-[1.1]">
-              {contact.title}
+              {finalCta.title}
             </h2>
           </Reveal>
 
           <Reveal index={2}>
             <p className="mt-4 max-w-md text-pretty text-sm leading-relaxed text-muted sm:mt-5 sm:text-base">
-              {contact.text}
+              {finalCta.text}
             </p>
           </Reveal>
 
           {/* Bullet list */}
           <Reveal index={3}>
             <ul className="mt-6 flex flex-col gap-3 sm:mt-8 sm:gap-4">
-              {contact.bullets.map((b) => (
+              {finalCta.bullets.map((b) => (
                 <li key={b} className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neon/12 text-neon ring-1 ring-neon/20">
                     <CheckIcon />
@@ -76,23 +87,23 @@ export function Contact() {
           <Reveal index={4}>
             <div className="mt-10 flex flex-col gap-2 text-sm">
               <a
-                href={`mailto:${site.email}`}
+                href={`mailto:${contactEmail}`}
                 className="flex items-center gap-2 text-muted transition-colors hover:text-neon"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 opacity-60" fill="none">
                   <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M2 8l10 6 10-6" stroke="currentColor" strokeWidth="1.4"/>
                 </svg>
-                {site.email}
+                {contactEmail}
               </a>
               <a
-                href={site.phoneHref}
+                href={toTelHref(phoneNumber)}
                 className="flex items-center gap-2 text-muted transition-colors hover:text-neon"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 opacity-60" fill="none">
                   <path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
                 </svg>
-                {site.phone}
+                {phoneNumber}
               </a>
             </div>
           </Reveal>
@@ -179,7 +190,7 @@ export function Contact() {
                   whileTap={{ scale: 0.98 }}
                   className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon to-neon-soft px-6 py-4 text-sm font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(13,253,209,0.55)] transition-shadow hover:shadow-[0_14px_50px_-8px_rgba(13,253,209,0.75)]"
                 >
-                  Get my free consultation
+                  {buttonText}
                   <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
                 </motion.button>
               </form>

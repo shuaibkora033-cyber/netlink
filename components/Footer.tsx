@@ -1,4 +1,5 @@
 import { nav, site } from "@/lib/content";
+import { toTelHref } from "@/lib/data/theme";
 import { Logo } from "./ui/Logo";
 
 const services = [
@@ -10,7 +11,15 @@ const services = [
   "Branding",
 ];
 
-export function Footer() {
+export function Footer({
+  contactEmail,
+  phoneNumber,
+  socialLinks,
+}: {
+  contactEmail: string;
+  phoneNumber: string;
+  socialLinks: Record<string, string>;
+}) {
   const year = 2026;
   return (
     <footer className="relative border-t border-line/60 bg-charcoal/30">
@@ -29,7 +38,7 @@ export function Footer() {
             </p>
             <div className="mt-5 flex items-center gap-3">
               <a
-                href={site.social.instagram}
+                href={socialLinks.instagram || site.social.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Netlink on Instagram"
@@ -40,7 +49,7 @@ export function Footer() {
                 </svg>
               </a>
               <a
-                href={site.social.linkedin}
+                href={socialLinks.linkedin || site.social.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Netlink on LinkedIn"
@@ -93,18 +102,18 @@ export function Footer() {
             <ul className="mt-4 flex flex-col gap-3 text-sm">
               <li>
                 <a
-                  href={`mailto:${site.email}`}
+                  href={`mailto:${contactEmail}`}
                   className="text-white/65 transition-colors hover:text-neon"
                 >
-                  {site.email}
+                  {contactEmail}
                 </a>
               </li>
               <li>
                 <a
-                  href={site.phoneHref}
+                  href={toTelHref(phoneNumber)}
                   className="text-white/65 transition-colors hover:text-neon"
                 >
-                  {site.phone}
+                  {phoneNumber}
                 </a>
               </li>
               <li className="pt-1">

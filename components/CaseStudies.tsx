@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { animate, useInView, motion } from "motion/react";
-import { caseStudies } from "@/lib/content";
+import type { CaseStudy } from "@/lib/data/homepage";
 import { SectionHeading } from "./ui/SectionHeading";
 import { Reveal } from "./ui/Reveal";
 
@@ -68,7 +68,7 @@ function badge(industry: string) {
 
 // ─── Section ─────────────────────────────────────────────────────────────────
 
-export function CaseStudies() {
+export function CaseStudies({ items }: { items: CaseStudy[] }) {
   return (
     <section
       id="results"
@@ -90,8 +90,8 @@ export function CaseStudies() {
         />
 
         <div className="mt-10 grid gap-5 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
-          {caseStudies.map((c, i) => (
-            <Reveal key={c.title} index={i} className="h-full">
+          {items.map((c, i) => (
+            <Reveal key={c.id} index={i} className="h-full">
               <motion.div
                 whileHover={{ y: -4 }}
                 transition={{ type: "spring", stiffness: 300, damping: 24 }}
@@ -111,7 +111,7 @@ export function CaseStudies() {
                   {c.title.split(" ").slice(1).join(" ")}
                 </h3>
 
-                <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">{c.text}</p>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">{c.body}</p>
 
                 {/* Metrics row */}
                 <div className="mt-6 grid grid-cols-2 gap-3 border-t border-line pt-5">

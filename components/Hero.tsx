@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { hero, stats } from "@/lib/content";
+import type { HomepageContent, Stat } from "@/lib/data/homepage";
 import { CtaButton } from "./ui/CtaButton";
 import { GlowBackground } from "./ui/GlowBackground";
 import { Counter } from "./ui/Counter";
@@ -25,8 +25,7 @@ const item = {
 
 // ─── Rotating keyword ─────────────────────────────────────────────────────────
 
-function RotatingWord() {
-  const words = hero.rotatingWords;
+function RotatingWord({ words }: { words: string[] }) {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
@@ -83,7 +82,7 @@ function PipelineArrow() {
   );
 }
 
-function PipelineVisual() {
+function PipelineVisual({ stats }: { stats: Stat[] }) {
   return (
     <motion.div variants={item} className="mt-8 w-full sm:mt-14">
       <div className="glass rounded-2xl border border-line">
@@ -164,7 +163,7 @@ function PipelineVisual() {
 
 // ─── Section ─────────────────────────────────────────────────────────────────
 
-export function Hero() {
+export function Hero({ content }: { content: HomepageContent }) {
   return (
     <section
       id="top"
@@ -185,7 +184,7 @@ export function Hero() {
           className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-white/[0.03] px-3.5 py-1.5 text-[0.65rem] font-medium uppercase tracking-[0.18em] text-muted sm:mb-6 sm:px-4 sm:text-xs sm:tracking-[0.2em]"
         >
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neon" />
-          {hero.eyebrow}
+          {content.heroBadge}
         </motion.span>
 
         {/* Headline */}
@@ -193,9 +192,9 @@ export function Hero() {
           variants={item}
           className="text-balance text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl md:text-5xl lg:text-[4rem]"
         >
-          {hero.headlineStart}
+          {content.heroHeadline}
           <br />
-          <RotatingWord />.
+          <RotatingWord words={content.heroRotatingWords} />.
         </motion.h1>
 
         {/* Subheadline */}
@@ -203,7 +202,7 @@ export function Hero() {
           variants={item}
           className="mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-muted sm:mt-6 sm:text-base"
         >
-          {hero.subheadline}
+          {content.heroSubheadline}
         </motion.p>
 
         {/* CTAs — full-width on mobile, inline on sm+ */}
@@ -211,14 +210,16 @@ export function Hero() {
           variants={item}
           className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center"
         >
-          <CtaButton href="#contact" className="w-full justify-center sm:w-auto">{hero.primaryCta}</CtaButton>
-          <CtaButton href="#services" variant="ghost" className="w-full justify-center sm:w-auto">
-            {hero.secondaryCta}
+          <CtaButton href={content.primaryCtaLink} className="w-full justify-center sm:w-auto">
+            {content.primaryCtaText}
+          </CtaButton>
+          <CtaButton href={content.secondaryCtaLink} variant="ghost" className="w-full justify-center sm:w-auto">
+            {content.secondaryCtaText}
           </CtaButton>
         </motion.div>
 
         {/* Stats + pipeline visual */}
-        <PipelineVisual />
+        <PipelineVisual stats={content.stats} />
       </motion.div>
     </section>
   );

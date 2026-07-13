@@ -85,11 +85,13 @@ function MobileNavbar({
   open,
   onToggle,
   onClose,
+  navbarCtaText,
 }: {
   scrolled: boolean;
   open: boolean;
   onToggle: () => void;
   onClose: () => void;
+  navbarCtaText: string;
 }) {
   return (
     <>
@@ -193,7 +195,7 @@ function MobileNavbar({
                 href="#contact"
                 className="w-full justify-center py-3.5 text-sm"
               >
-                Get Free Consultation →
+                Get {navbarCtaText} →
               </CtaButton>
             </div>
 
@@ -213,7 +215,13 @@ function MobileNavbar({
 //  Uses the original centered-pill approach (left-1/2 -translate-x-1/2 + calc)
 //  which is correct and reliable at desktop widths.
 
-function DesktopNavbar({ scrolled }: { scrolled: boolean }) {
+function DesktopNavbar({
+  scrolled,
+  navbarCtaText,
+}: {
+  scrolled: boolean;
+  navbarCtaText: string;
+}) {
   return (
     <header
       style={{ width: "calc(100% - 32px)" }}
@@ -254,7 +262,7 @@ function DesktopNavbar({ scrolled }: { scrolled: boolean }) {
 
         {/* CTA */}
         <CtaButton href="#contact" className="shrink-0 px-5 py-2.5 text-xs">
-          Free Consultation
+          {navbarCtaText}
         </CtaButton>
       </div>
     </header>
@@ -263,7 +271,7 @@ function DesktopNavbar({ scrolled }: { scrolled: boolean }) {
 
 // ─── Navbar (export) ──────────────────────────────────────────────────────────
 
-export function Navbar() {
+export function Navbar({ navbarCtaText }: { navbarCtaText: string }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen]         = useState(false);
 
@@ -304,8 +312,9 @@ export function Navbar() {
         open={open}
         onToggle={() => setOpen((v) => !v)}
         onClose={() => setOpen(false)}
+        navbarCtaText={navbarCtaText}
       />
-      <DesktopNavbar scrolled={scrolled} />
+      <DesktopNavbar scrolled={scrolled} navbarCtaText={navbarCtaText} />
     </>
   );
 }

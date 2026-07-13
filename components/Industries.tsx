@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { industries } from "@/lib/content";
+import type { IndustryItem } from "@/lib/data/homepage";
 import { SectionHeading } from "./ui/SectionHeading";
 import { Reveal } from "./ui/Reveal";
 
@@ -63,7 +63,15 @@ const ICONS: Record<string, ReactNode> = {
   ),
 };
 
-export function Industries() {
+// Fallback icon for any industry id an admin adds that has no dedicated icon above.
+const DEFAULT_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M12 8v5M12 16h.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+export function Industries({ items }: { items: IndustryItem[] }) {
   return (
     <section
       id="industries"
@@ -85,11 +93,11 @@ export function Industries() {
         />
 
         <div className="mt-10 grid grid-cols-2 gap-2 sm:mt-12 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:gap-4">
-          {industries.map((ind, i) => (
+          {items.map((ind, i) => (
             <Reveal key={ind.id} index={i % 4}>
               <div className="group flex items-center gap-2 rounded-xl border border-line bg-white/[0.02] px-3 py-3 transition-all duration-300 hover:border-neon/30 hover:bg-neon/[0.04] sm:gap-3 sm:px-4 sm:py-4">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neon/20 bg-neon/8 text-neon transition-all duration-300 group-hover:border-neon/40 group-hover:bg-neon/15 sm:h-9 sm:w-9">
-                  {ICONS[ind.id]}
+                  {ICONS[ind.id] ?? DEFAULT_ICON}
                 </span>
                 <span className="text-xs font-medium leading-snug text-fg/80 transition-colors group-hover:text-fg sm:text-sm">
                   {ind.name}
