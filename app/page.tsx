@@ -16,6 +16,14 @@ import { Footer } from "@/components/Footer";
 import { getHomepageContent, getCaseStudies } from "@/lib/data/homepage";
 import { getThemeSettings } from "@/lib/data/theme";
 
+// Without this, Next prerenders "/" once at build time (no cookies/headers/
+// searchParams are used here to trigger dynamic rendering automatically),
+// so admin edits saved to Supabase after the build never reach visitors —
+// the same frozen HTML keeps being served under `next start` until the next
+// rebuild. Forcing dynamic rendering makes every request re-run the Supabase
+// reads below, so saved changes go live immediately with no rebuild.
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [content, caseStudies, theme] = await Promise.all([
     getHomepageContent(),
