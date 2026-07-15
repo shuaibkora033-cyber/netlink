@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const title = "Netlink — Performance-Driven Digital Growth Agency";
+const title = "Netlink | Lead Generation & Appointment Setting System";
 const description =
-  "Netlink helps service businesses build high-converting websites, launch performance marketing campaigns, and create lead generation systems designed to attract, convert, and scale.";
+  "Netlink helps service businesses generate qualified leads and book sales appointments through funnels, ads, automation, and managed follow-up.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.netlink.agency"),
@@ -25,11 +25,11 @@ export const metadata: Metadata = {
   },
   description,
   keywords: [
-    "digital marketing agency",
     "lead generation",
-    "performance marketing",
-    "web development",
-    "conversion optimization",
+    "appointment setting",
+    "done-for-you lead generation",
+    "qualified appointments",
+    "sales pipeline",
     "service business growth",
   ],
   authors: [{ name: "Netlink" }],

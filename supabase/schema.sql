@@ -36,7 +36,7 @@ create table if not exists theme_settings (
   primary_color      text not null default '#0dfdd1',
   secondary_color    text not null default '#22d3ee',
   background_color   text not null default '#050507',
-  button_text        text not null default 'Get a Free Growth Consultation',
+  button_text        text not null default 'Book a Free Growth Consultation',
   navbar_cta_text    text not null default 'Free Consultation',
   section_visibility jsonb not null default '{
     "clients": true,
@@ -48,6 +48,7 @@ create table if not exists theme_settings (
     "caseStudies": true,
     "googleReviews": true,
     "whyChoose": true,
+    "dashboardReporting": true,
     "faq": true,
     "contact": true
   }'::jsonb,
@@ -73,44 +74,46 @@ insert into theme_settings (id) values (1)
 -- Singleton table — always exactly one row, id = 1.
 create table if not exists homepage_content (
   id                   smallint primary key default 1,
-  hero_badge           text not null default 'Digital growth agency',
-  hero_headline        text not null default 'Build a digital growth system that turns clicks into',
-  hero_rotating_words  text[] not null default array['Leads','Websites','Campaigns','Growth'],
-  hero_subheadline     text not null default 'Netlink helps service businesses build high-converting websites, launch performance campaigns, and create lead generation systems designed to scale.',
-  primary_cta_text     text not null default 'Get a Free Growth Consultation',
+  hero_badge           text not null default 'Fully Managed Lead Generation & Appointment Setting',
+  hero_headline        text not null default 'Turn Qualified Prospects Into Booked',
+  hero_rotating_words  text[] not null default array['Appointments','Sales Calls','Consultations','Discovery Calls'],
+  hero_subheadline     text not null default 'Netlink helps service businesses generate qualified leads, follow up with prospects, and book sales appointments using high-converting funnels, paid ads, automation, and managed appointment setting.',
+  primary_cta_text     text not null default 'Book a Free Growth Consultation',
   primary_cta_link     text not null default '#contact',
-  secondary_cta_text   text not null default 'Explore Services',
-  secondary_cta_link   text not null default '#services',
+  secondary_cta_text   text not null default 'See How It Works',
+  secondary_cta_link   text not null default '#process',
   stats                jsonb not null default '[
-    {"value": 120, "suffix": "+", "label": "Campaigns launched"},
-    {"value": 3.4, "suffix": "×", "label": "Avg. return on ad spend"},
-    {"value": 68, "suffix": "%", "label": "Lower cost per lead"},
-    {"value": 24, "suffix": "/7", "label": "Performance monitoring"}
+    {"value": 850, "suffix": "+", "label": "Qualified leads generated"},
+    {"value": 42, "suffix": "%", "label": "Booked appointment rate"},
+    {"value": 61, "suffix": "%", "label": "Lower cost per qualified lead"},
+    {"value": 24, "suffix": "/7", "label": "Pipeline visibility"}
   ]'::jsonb,
   growth_steps         jsonb not null default '[
-    {"num": "01", "title": "Discover", "text": "We audit your funnel, market, and numbers to find where growth is leaking — and where the biggest wins are hiding."},
-    {"num": "02", "title": "Build", "text": "We design conversion-focused pages, offers, and tracking, then wire up the automation that turns interest into booked calls."},
-    {"num": "03", "title": "Launch", "text": "We deploy performance campaigns with sharp creative and tight targeting, driving qualified traffic into your new system."},
-    {"num": "04", "title": "Optimize", "text": "We monitor every metric that matters and iterate weekly — scaling what works and cutting what does not to compound results."}
+    {"num": "01", "title": "Diagnose", "text": "We audit your market, offer, funnel, and current lead flow to find where appointments are being lost."},
+    {"num": "02", "title": "Build", "text": "We create the landing page, tracking, CRM flow, lead forms, and appointment booking system."},
+    {"num": "03", "title": "Generate", "text": "We launch targeted campaigns to attract qualified prospects."},
+    {"num": "04", "title": "Qualify", "text": "We filter, nurture, and follow up with leads so your team speaks to better prospects."},
+    {"num": "05", "title": "Book", "text": "Qualified prospects are moved into booked appointments or sales consultations."},
+    {"num": "06", "title": "Optimize", "text": "We track cost per lead, booking rate, show-up rate, and close performance to improve the system."}
   ]'::jsonb,
   industries           jsonb not null default '[
-    {"id": "solar", "name": "Solar & Clean Energy"},
-    {"id": "home-services", "name": "Home Services & HVAC"},
-    {"id": "healthcare", "name": "Healthcare & Wellness"},
-    {"id": "real-estate", "name": "Real Estate & Property"},
-    {"id": "professional", "name": "Professional Services"},
-    {"id": "construction", "name": "Construction & Trades"},
-    {"id": "ecommerce", "name": "E-commerce & Retail"},
-    {"id": "finance", "name": "Financial Services"}
+    {"id": "solar", "name": "Solar Companies"},
+    {"id": "home-services", "name": "Roofing & Home Improvement"},
+    {"id": "real-estate", "name": "Real Estate & Investment Services"},
+    {"id": "healthcare", "name": "Medical & Clinics"},
+    {"id": "legal", "name": "Legal Services"},
+    {"id": "finance", "name": "Financial Services"},
+    {"id": "b2b", "name": "B2B Service Providers"},
+    {"id": "local-service", "name": "Local Service Businesses"}
   ]'::jsonb,
   final_cta            jsonb not null default '{
     "eyebrow": "Let''s talk",
-    "title": "Get a free growth consultation",
-    "text": "Tell us about your business and goals. We''ll audit where growth is leaking and show you exactly how Netlink''s system can fill your pipeline — no pressure, no obligation.",
+    "title": "See If Netlink Is The Right Growth Partner For Your Business",
+    "text": "We work best with service businesses that already have a real offer, a sales process, and capacity to handle more qualified appointments.",
     "bullets": [
-      "A tailored growth plan for your business",
-      "Where your funnel is leaking leads today",
-      "Realistic projections and clear next steps"
+      "A tailored plan to generate and book more qualified appointments",
+      "Where your current lead flow is leaking opportunities",
+      "Clear next steps if we''re the right fit"
     ]
   }'::jsonb,
   updated_at           timestamptz not null default now(),
@@ -224,15 +227,11 @@ create policy "public can read site_settings" on site_settings
 -- ============================================================================
 
 insert into services (title, description, icon_key, order_index, is_visible) values
-  ('Lead Generation', 'Strategic inbound and outbound funnels that identify, engage, and qualify high-intent prospects before handing them to your team.', 'lead-gen', 0, true),
-  ('Appointment Setting', 'Systematic outreach and follow-up sequences that land qualified prospects directly onto your sales calendar.', 'appt-setting', 1, true),
-  ('Web Development', 'High-converting websites and landing pages built for speed, trust, and measurable action — not just aesthetics.', 'web-dev', 2, true),
-  ('UI/UX Design', 'Interfaces designed around real user psychology to reduce friction, build trust, and maximize every conversion opportunity.', 'uiux', 3, true),
-  ('Performance Marketing', 'Data-driven paid media across Meta, Google, and beyond — engineered for maximum reach and predictable ROI.', 'perf-marketing', 4, true),
-  ('Google Ads', 'Intent-based search campaigns that capture high-value prospects at the exact moment they''re searching for you.', 'google-ads', 5, true),
-  ('Social Media Marketing', 'Content and community strategies that build authority, grow reach, and turn followers into paying customers.', 'social-media', 6, true),
-  ('Branding & Creative Direction', 'A distinct brand identity — logo, visuals, and messaging — engineered to position you as the premium choice in your market.', 'branding', 7, true),
-  ('Conversion Optimization', 'Systematic testing and funnel analysis that extracts more revenue from your existing traffic without raising ad spend.', 'conversion', 8, true)
+  ('Lead Generation', 'We launch campaigns designed to attract qualified prospects.', 'lead-gen', 0, true),
+  ('Appointment Setting', 'We help move qualified prospects into booked calls.', 'appt-setting', 1, true),
+  ('Conversion Funnels', 'We build landing pages that turn visitors into inquiries.', 'conversion', 2, true),
+  ('Lead Nurturing', 'We follow up with prospects through structured workflows.', 'lead-nurturing', 3, true),
+  ('Reporting Dashboard', 'You see leads, booked appointments, and pipeline performance clearly.', 'reporting-dashboard', 4, true)
 on conflict do nothing;
 
 insert into clients (name, logo_url, website_url, industry, is_visible, needs_light_hover, order_index) values
@@ -258,10 +257,10 @@ insert into faqs (question, answer, order_index, is_visible) values
 on conflict do nothing;
 
 insert into case_studies (industry, title, body, metrics, order_index, is_visible) values
-  ('Solar', '3.8× ROAS in 90 days', 'Rebuilt the funnel and paid social system for a residential solar installer, cutting cost per booked consultation significantly.',
-    '[{"value": "3.8×", "label": "Return on ad spend"}, {"value": "−54%", "label": "Cost per appointment"}]'::jsonb, 0, true),
-  ('Home services', '212 qualified leads / month', 'Launched a lead-gen and appointment-setting engine for an HVAC company, filling the calendar during a traditionally slow season.',
-    '[{"value": "212", "label": "Monthly qualified leads"}, {"value": "4.1×", "label": "Pipeline growth"}]'::jsonb, 1, true),
-  ('Professional services', '+180% booked calls', 'New conversion-focused website plus search campaigns nearly tripled inbound consultations for a consulting firm.',
-    '[{"value": "+180%", "label": "Booked calls"}, {"value": "2.3 s", "label": "Page load time"}]'::jsonb, 2, true)
+  ('Solar', '312 Booked Appointments in 90 Days', 'Rebuilt the lead flow and appointment workflow for a residential solar installer, filling their calendar with qualified consultations.',
+    '[{"value": "312", "label": "Booked appointments"}, {"value": "38%", "label": "Show-up rate lift"}]'::jsonb, 0, true),
+  ('Home services', '58% Lower Cost Per Qualified Lead', 'Launched a lead generation and nurture system for a roofing company, cutting wasted ad spend on unqualified inquiries.',
+    '[{"value": "−58%", "label": "Cost per qualified lead"}, {"value": "4.2×", "label": "Pipeline growth"}]'::jsonb, 1, true),
+  ('Professional services', '+210% Qualified Sales Calls', 'New conversion funnel plus managed appointment setting nearly tripled booked consultations for a B2B service provider.',
+    '[{"value": "+210%", "label": "Qualified sales calls"}, {"value": "91%", "label": "Lead response rate"}]'::jsonb, 2, true)
 on conflict do nothing;

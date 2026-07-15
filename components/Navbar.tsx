@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { nav, site } from "@/lib/content";
 import { CtaButton } from "./ui/CtaButton";
@@ -27,7 +28,7 @@ function NavLink({
   onClick?: () => void;
 }) {
   return (
-    <a
+    <Link
       href={href}
       onClick={onClick}
       className={[
@@ -38,7 +39,7 @@ function NavLink({
       ].join(" ")}
     >
       {label}
-    </a>
+    </Link>
   );
 }
 
@@ -120,13 +121,13 @@ function MobileNavbar({
           ].join(" ")}
         >
           {/* Logo */}
-          <a
-            href="#top"
+          <Link
+            href="/"
             aria-label={site.name}
             className="flex min-w-0 shrink-0 items-center"
           >
-            <Logo />
-          </a>
+            <Logo size="sm" animated />
+          </Link>
 
           {/* Hamburger button — ml-auto pushes it to far right inside the pill */}
           <button
@@ -175,7 +176,7 @@ function MobileNavbar({
           >
             <nav className="flex flex-col" aria-label="Mobile navigation">
               {nav.map((item) => (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
@@ -183,7 +184,7 @@ function MobileNavbar({
                 >
                   <span className="h-3.5 w-px rounded-full bg-neon/0 transition-all duration-200 group-hover:bg-neon/70" />
                   {item.label}
-                </a>
+                </Link>
               ))}
             </nav>
 
@@ -192,7 +193,7 @@ function MobileNavbar({
               onClick={onClose}
             >
               <CtaButton
-                href="#contact"
+                href="/book-consultation"
                 className="w-full justify-center py-3.5 text-sm"
               >
                 Get {navbarCtaText} →
@@ -242,13 +243,13 @@ function DesktopNavbar({
     >
       <div className="flex w-full items-center gap-4">
         {/* Logo */}
-        <a
-          href="#top"
+        <Link
+          href="/"
           aria-label={site.name}
           className="flex shrink-0 items-center"
         >
-          <Logo />
-        </a>
+          <Logo size="md" animated />
+        </Link>
 
         {/* Nav links — always visible inside desktop navbar */}
         <nav
@@ -261,7 +262,7 @@ function DesktopNavbar({
         </nav>
 
         {/* CTA */}
-        <CtaButton href="#contact" className="shrink-0 px-5 py-2.5 text-xs">
+        <CtaButton href="/book-consultation" className="shrink-0 px-5 py-2.5 text-xs">
           {navbarCtaText}
         </CtaButton>
       </div>

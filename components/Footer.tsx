@@ -1,15 +1,7 @@
-import { nav, site } from "@/lib/content";
+import Link from "next/link";
+import { footerExploreLinks, footerServiceLinks, site } from "@/lib/content";
 import { toTelHref } from "@/lib/data/theme";
 import { Logo } from "./ui/Logo";
-
-const services = [
-  "Lead Generation",
-  "Appointment Setting",
-  "Web Development",
-  "Performance Marketing",
-  "Google Ads",
-  "Branding",
-];
 
 export function Footer({
   contactEmail,
@@ -66,14 +58,14 @@ export function Footer({
           <div>
             <h4 className="text-xs uppercase tracking-[0.2em] text-muted">Explore</h4>
             <ul className="mt-4 flex flex-col gap-2.5">
-              {nav.map((item) => (
+              {footerExploreLinks.map((item) => (
                 <li key={item.href}>
-                  <a
+                  <Link
                     href={item.href}
                     className="text-sm text-white/65 transition-colors hover:text-neon"
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -83,14 +75,14 @@ export function Footer({
           <div>
             <h4 className="text-xs uppercase tracking-[0.2em] text-muted">Services</h4>
             <ul className="mt-4 flex flex-col gap-2.5">
-              {services.map((s) => (
-                <li key={s}>
-                  <a
-                    href="#services"
+              {footerServiceLinks.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
                     className="text-sm text-white/65 transition-colors hover:text-neon"
                   >
-                    {s}
-                  </a>
+                    {item.label}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -117,12 +109,12 @@ export function Footer({
                 </a>
               </li>
               <li className="pt-1">
-                <a
-                  href="#contact"
+                <Link
+                  href="/book-consultation"
                   className="inline-flex items-center gap-1.5 rounded-full border border-neon/30 bg-neon/8 px-4 py-2 text-xs font-medium text-neon transition-all hover:border-neon/60 hover:bg-neon/15"
                 >
                   Free consultation →
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

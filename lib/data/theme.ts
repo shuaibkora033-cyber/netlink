@@ -25,6 +25,7 @@ export const DEFAULT_SECTION_VISIBILITY: Record<string, boolean> = {
   caseStudies: true,
   googleReviews: true,
   whyChoose: true,
+  dashboardReporting: true,
   faq: true,
   contact: true,
 };
@@ -33,7 +34,7 @@ export const DEFAULT_THEME: ThemeSettings = {
   primaryColor: "#0dfdd1",
   secondaryColor: "#22d3ee",
   backgroundColor: "#050507",
-  buttonText: "Get a Free Growth Consultation",
+  buttonText: "Book a Free Growth Consultation",
   navbarCtaText: "Free Consultation",
   sectionVisibility: DEFAULT_SECTION_VISIBILITY,
   contactEmail: site.email,

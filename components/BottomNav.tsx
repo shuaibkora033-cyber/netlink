@@ -1,20 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-// ─── Section → nav tab mapping ────────────────────────────────────────────────
-// Ordered bottom-of-page first; the first match whose offsetTop ≤ scroll mid wins.
-const SECTION_MAP: ReadonlyArray<{ sectionId: string; navId: string }> = [
-  { sectionId: "contact",    navId: "book"     },
-  { sectionId: "faq",        navId: "book"     },
-  { sectionId: "why",        navId: "book"     },
-  { sectionId: "reviews",    navId: "results"  },
-  { sectionId: "results",    navId: "results"  },
-  { sectionId: "industries", navId: "results"  },
-  { sectionId: "process",    navId: "services" },
-  { sectionId: "services",   navId: "services" },
-  { sectionId: "top",        navId: "home"     },
-];
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -93,9 +81,17 @@ function BurgerIcon({ open }: { open: boolean }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// Real route → nav tab mapping (multi-page site). The first prefix match wins.
+const ROUTE_MAP: ReadonlyArray<{ prefix: string; navId: string }> = [
+  { prefix: "/book-consultation", navId: "book" },
+  { prefix: "/results", navId: "results" },
+  { prefix: "/lead-generation", navId: "services" },
+  { prefix: "/appointment-setting", navId: "services" },
+];
+
 export function BottomNav() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [active,   setActive]   = useState("home");
+  const pathname = usePathname();
 
   // ── Sync with the top Navbar's drawer state ──────────────────────────────
   useEffect(() => {
@@ -106,23 +102,10 @@ export function BottomNav() {
     return () => window.removeEventListener("netlink:menu-changed", onChanged);
   }, []);
 
-  // ── Track which section is in view ──────────────────────────────────────
-  useEffect(() => {
-    const check = () => {
-      const mid = window.scrollY + window.innerHeight * 0.45;
-      for (const { sectionId, navId } of SECTION_MAP) {
-        const el = document.getElementById(sectionId);
-        if (el && el.offsetTop <= mid) {
-          setActive(navId);
-          return;
-        }
-      }
-      setActive("home");
-    };
-    window.addEventListener("scroll", check, { passive: true });
-    check();
-    return () => window.removeEventListener("scroll", check);
-  }, []);
+  const active =
+    pathname === "/"
+      ? "home"
+      : ROUTE_MAP.find(({ prefix }) => pathname.startsWith(prefix))?.navId ?? "";
 
   // When the menu is open, override the active indicator to "menu"
   const activeTab = menuOpen ? "menu" : active;
@@ -159,32 +142,32 @@ export function BottomNav() {
         ].join(" ")}
       >
         {/* ── Home ─────────────────────────────────────────────────────── */}
-        <a
-          href="#top"
+        <Link
+          href="/"
           aria-label="Home"
           className={`${tabBase} ${activeTab === "home" ? tabActive : tabDefault}`}
         >
           <HomeIcon />
           <span className="text-[0.58rem] font-medium tracking-wide">Home</span>
-        </a>
+        </Link>
 
         {/* ── Services ─────────────────────────────────────────────────── */}
-        <a
-          href="#services"
+        <Link
+          href="/lead-generation"
           aria-label="Services"
           className={`${tabBase} ${activeTab === "services" ? tabActive : tabDefault}`}
         >
           <GridIcon />
           <span className="text-[0.58rem] font-medium tracking-wide">Services</span>
-        </a>
+        </Link>
 
         {/* ── Book (primary CTA) ───────────────────────────────────────── */}
         {/*
          * To change the Book CTA destination: update the href below.
          * To resize the badge: adjust px-*, py-*, and text-* classes below.
          */}
-        <a
-          href="#contact"
+        <Link
+          href="/book-consultation"
           aria-label="Book a free consultation"
           className={[
             "flex flex-col items-center gap-[3px]",
@@ -203,17 +186,17 @@ export function BottomNav() {
         >
           <CalendarIcon />
           <span className="text-[0.58rem] font-semibold tracking-wide">Book</span>
-        </a>
+        </Link>
 
         {/* ── Results ──────────────────────────────────────────────────── */}
-        <a
-          href="#results"
+        <Link
+          href="/results"
           aria-label="Results"
           className={`${tabBase} ${activeTab === "results" ? tabActive : tabDefault}`}
         >
           <TrendIcon />
           <span className="text-[0.58rem] font-medium tracking-wide">Results</span>
-        </a>
+        </Link>
 
         {/* ── Menu ─────────────────────────────────────────────────────── */}
         <button

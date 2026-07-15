@@ -5,23 +5,29 @@ import { problem } from "@/lib/content";
 import { Reveal } from "./ui/Reveal";
 import { SectionHeading } from "./ui/SectionHeading";
 
-// Pain-point icons (warning / leaking / fog themed)
+// Pain-point icons, one per problem.points entry in order:
+// Inconsistent lead flow → Low-quality leads → Slow follow-up → No clear system
 const ICONS = [
-  // Funnel with leak
+  // Gauge / unpredictable performance
   <svg key="a" viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-    <path d="M3 4h18v2l-7 8v6l-4-2v-4L3 6V4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-    <path d="M14 18l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2"/>
-  </svg>,
-  // Broken chain / disconnected links
-  <svg key="b" viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-    <path d="M9 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2"/>
-    <path d="M7 8H5a3 3 0 000 6h2M17 8h2a3 3 0 010 6h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>,
-  // Gauge / unknown
-  <svg key="c" viewBox="0 0 24 24" fill="none" className="h-6 w-6">
     <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" strokeWidth="1.4"/>
     <path d="M12 8v4l2.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M7 9l1 1M17 9l-1 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".5"/>
+  </svg>,
+  // Funnel with leak
+  <svg key="b" viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+    <path d="M3 4h18v2l-7 8v6l-4-2v-4L3 6V4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    <path d="M14 18l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2"/>
+  </svg>,
+  // Clock — slow follow-up
+  <svg key="c" viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M12 7v5l3.5 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>,
+  // Broken chain / disconnected links
+  <svg key="d" viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+    <path d="M9 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2"/>
+    <path d="M7 8H5a3 3 0 000 6h2M17 8h2a3 3 0 010 6h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>,
 ];
 
@@ -37,7 +43,7 @@ export function Problem() {
         subtitle={problem.body}
       />
 
-      <div className="mt-10 grid gap-4 sm:mt-16 md:grid-cols-3">
+      <div className="mt-10 grid gap-4 sm:mt-16 sm:grid-cols-2 lg:grid-cols-4">
         {problem.points.map((p, i) => (
           <Reveal key={p.title} index={i} className="h-full">
             <motion.div

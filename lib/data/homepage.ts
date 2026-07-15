@@ -37,7 +37,7 @@ export const DEFAULT_HOMEPAGE_CONTENT: HomepageContent = {
   primaryCtaText: hero.primaryCta,
   primaryCtaLink: "#contact",
   secondaryCtaText: hero.secondaryCta,
-  secondaryCtaLink: "#services",
+  secondaryCtaLink: "#process",
   stats: stats.map((s) => ({ value: s.value, suffix: s.suffix, label: s.label })),
   growthSteps: growthProcess.steps.map((s) => ({ num: s.num, title: s.title, text: s.text })),
   industries: industries.map((i) => ({ id: i.id, name: i.name })),

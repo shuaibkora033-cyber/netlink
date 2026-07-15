@@ -55,6 +55,35 @@
   to   { background-position:  200% center; }
 }
 
+/* Navbar logomark icon: float + scale + glow pulse. transform/filter only,
+   so it never affects layout — the wordmark next to it stays perfectly
+   still (aside from its own much subtler, synced .nav-logo-text pulse). */
+@keyframes navLogoIconPulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 7px rgba(13, 253, 209, 0.35));
+  }
+  50% {
+    transform: translateY(-1.5px) scale(1.035);
+    filter: drop-shadow(0 0 15px rgba(13, 253, 209, 0.75));
+  }
+}
+
+/* Navbar wordmark: very subtle opacity/glow echo, synced to the same 3s
+   cycle as the icon (same duration + easing, no phase offset) so the whole
+   lockup breathes together instead of the icon feeling animated alone.
+   No transform here — the text never moves. */
+@keyframes navLogoTextPulse {
+  0%, 100% {
+    opacity: 1;
+    text-shadow: 0 0 0 rgba(13, 253, 209, 0);
+  }
+  50% {
+    opacity: 0.95;
+    text-shadow: 0 0 6px rgba(13, 253, 209, 0.25);
+  }
+}
+
 /* ── Base ────────────────────────────────────────────────────────────────────── */
 
 :root { color-scheme: dark; }
@@ -159,6 +188,21 @@ body {
   );
 }
 
+/* Navbar logomark icon animation — see @keyframes navLogoIconPulse above.
+   Applied directly to the icon element only (never the navbar itself). */
+.nav-logo-icon {
+  animation: navLogoIconPulse 3s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, filter;
+}
+
+/* Navbar wordmark animation — see @keyframes navLogoTextPulse above. Same
+   3s duration as .nav-logo-icon (no phase offset) so both stay in sync. */
+.nav-logo-text {
+  animation: navLogoTextPulse 3s ease-in-out infinite;
+  will-change: opacity, text-shadow;
+}
+
 /* Section separator neon line */
 .section-rule {
   height: 1px;
@@ -207,5 +251,18 @@ body {
     animation-iteration-count: 1      !important;
     transition-duration:      0.001ms !important;
     scroll-behavior: auto             !important;
+  }
+
+  /* Explicit on top of the blanket rule above: fully static logo, no glow pulse. */
+  .nav-logo-icon {
+    animation: none !important;
+    transform: none !important;
+    filter: drop-shadow(0 0 7px rgba(13, 253, 209, 0.45)) !important;
+  }
+
+  .nav-logo-text {
+    animation: none !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
   }
 }

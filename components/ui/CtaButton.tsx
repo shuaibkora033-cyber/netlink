@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
@@ -15,6 +16,8 @@ type CtaButtonProps = {
 const base =
   "group relative inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-tight transition-colors";
 
+const MotionLink = motion.create(Link);
+
 /** Primary = neon gradient pill; ghost = glass outline. Subtle hover lift. */
 export function CtaButton({
   children,
@@ -28,7 +31,7 @@ export function CtaButton({
       : "text-fg glass hover:border-white/20 hover:bg-white/[0.06]";
 
   return (
-    <motion.a
+    <MotionLink
       href={href}
       className={`${base} ${styles} ${className}`}
       whileHover={{ y: -2 }}
@@ -42,6 +45,6 @@ export function CtaButton({
       >
         →
       </span>
-    </motion.a>
+    </MotionLink>
   );
 }

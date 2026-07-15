@@ -110,33 +110,64 @@ export function HomepageEditor() {
   const [csRowState, setCsRowState] = useState<Record<string, SaveState>>({});
   const [csRowError, setCsRowError] = useState<Record<string, string | null>>({});
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/homepage");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load homepage content.");
-        setSections(buildSections(data));
-        setLoadState("ready");
-      } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load homepage content.");
-        setLoadState("error");
-      }
-    })();
+  const [resetState, setResetState] = useState<SaveState>("idle");
+  const [resetError, setResetError] = useState<string | null>(null);
 
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/case-studies");
-        const data: CaseStudyRow[] = await res.json();
-        if (!res.ok) throw new Error((data as unknown as { error?: string }).error || "Failed to load case studies.");
-        setCaseStudies(data);
-        setSavedCaseStudies(Object.fromEntries(data.map((row) => [row.id, row])));
-        setCsLoadState("ready");
-      } catch {
-        setCsLoadState("error");
-      }
-    })();
+  async function loadHomepage() {
+    try {
+      const res = await fetch("/api/admin/homepage");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load homepage content.");
+      setSections(buildSections(data));
+      setLoadState("ready");
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load homepage content.");
+      setLoadState("error");
+    }
+  }
+
+  async function loadCaseStudies() {
+    try {
+      const res = await fetch("/api/admin/case-studies");
+      const data: CaseStudyRow[] = await res.json();
+      if (!res.ok) throw new Error((data as unknown as { error?: string }).error || "Failed to load case studies.");
+      setCaseStudies(data);
+      setSavedCaseStudies(Object.fromEntries(data.map((row) => [row.id, row])));
+      setCsLoadState("ready");
+    } catch {
+      setCsLoadState("error");
+    }
+  }
+
+  useEffect(() => {
+    loadHomepage();
+    loadCaseStudies();
   }, []);
+
+  async function handleResetToDefaults() {
+    const confirmed = window.confirm(
+      "This overwrites every homepage section and all case studies with Netlink's new lead-generation defaults, for everyone visiting the site. This cannot be undone. Continue?"
+    );
+    if (!confirmed) return;
+
+    setResetState("saving");
+    setResetError(null);
+    try {
+      const res = await fetch("/api/admin/homepage/reset", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to reset.");
+
+      setLoadState("loading");
+      setCsLoadState("loading");
+      await Promise.all([loadHomepage(), loadCaseStudies()]);
+
+      setResetState("saved");
+      setTimeout(() => setResetState((s) => (s === "saved" ? "idle" : s)), 3000);
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : "Failed to reset.");
+      setResetState("error");
+    }
+  }
 
   function updateSection<K extends SectionKey>(key: K, data: Sections[K]["data"]) {
     setSections((prev) => (prev ? { ...prev, [key]: { ...prev[key], data } } : prev));
@@ -275,6 +306,24 @@ export function HomepageEditor() {
           Each section below saves independently — saving one section never touches the others.
         </p>
       </div>
+
+      <section className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-5 sm:p-7">
+        <h2 className="text-base font-semibold text-fg">Reset to Netlink&apos;s new defaults</h2>
+        <p className="mt-1 text-sm text-muted">
+          Overwrites every section below and all case studies with the current lead-generation
+          positioning from the codebase. Use this once to push the new copy live instead of
+          re-typing each section — review the sections afterward and adjust anything you&apos;d
+          like to keep custom.
+        </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <SaveButton
+            state={resetState}
+            label="Reset all homepage content"
+            onClick={handleResetToDefaults}
+          />
+          <StatusMessage state={resetState} error={resetError} />
+        </div>
+      </section>
 
       {/* ── Hero ── */}
       <Panel
