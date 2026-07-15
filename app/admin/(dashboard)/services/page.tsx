@@ -1,10 +1,5 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import { ServicesEditor } from "./ServicesEditor";
 
 export default function AdminServicesPage() {
-  return (
-    <ComingSoon
-      title="Services"
-      description="Edit each service's title, description, icon, order, and visibility."
-    />
-  );
+  return <ServicesEditor />;
 }

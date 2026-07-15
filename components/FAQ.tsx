@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { faqs } from "@/lib/content";
+import { DEFAULT_FAQS, type FaqItem } from "@/lib/data/faqs";
 import { SectionHeading } from "./ui/SectionHeading";
 
-export function FAQ() {
+export function FAQ({ items = DEFAULT_FAQS }: { items?: FaqItem[] }) {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
@@ -23,11 +23,11 @@ export function FAQ() {
       />
 
       <div className="mt-12 flex flex-col gap-3">
-        {faqs.map((faq, i) => {
+        {items.map((faq, i) => {
           const isOpen = open === i;
           return (
             <motion.div
-              key={faq.q}
+              key={faq.id}
               initial={false}
               animate={{
                 borderColor: isOpen

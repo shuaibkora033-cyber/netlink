@@ -44,17 +44,29 @@ const ICONS = [
   </svg>,
 ];
 
-export function WhyChoose() {
+type WhyReason = { title: string; text: string };
+
+type WhyChooseProps = {
+  eyebrow?: string;
+  title?: string;
+  reasons?: WhyReason[];
+};
+
+export function WhyChoose({
+  eyebrow = why.eyebrow,
+  title = why.title,
+  reasons = why.reasons,
+}: WhyChooseProps = {}) {
   return (
     <section
       id="why"
       className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-24"
     >
-      <SectionHeading eyebrow={why.eyebrow} title={why.title} />
+      <SectionHeading eyebrow={eyebrow} title={title} />
 
       <div className="mt-10 grid gap-4 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
-        {why.reasons.map((r, i) => (
-          <Reveal key={r.title} index={i % 3} className="h-full">
+        {reasons.map((r, i) => (
+          <Reveal key={`${r.title}-${i}`} index={i % 3} className="h-full">
             <motion.div
               whileHover={{ y: -3 }}
               transition={{ type: "spring", stiffness: 320, damping: 22 }}
@@ -73,7 +85,7 @@ export function WhyChoose() {
 
               {/* Icon */}
               <span className="relative mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-neon/20 bg-neon/8 text-neon transition-all duration-300 group-hover:border-neon/45 group-hover:bg-neon/15 group-hover:scale-110">
-                {ICONS[i]}
+                {ICONS[i % ICONS.length]}
               </span>
 
               <h3 className="relative text-base font-semibold tracking-tight text-fg">

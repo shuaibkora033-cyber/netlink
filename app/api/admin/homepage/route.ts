@@ -28,7 +28,6 @@ export async function GET() {
     secondaryCtaLink: data.secondary_cta_link,
     stats: data.stats ?? [],
     growthSteps: data.growth_steps ?? [],
-    industries: data.industries ?? [],
     finalCta: data.final_cta,
   });
 }
@@ -49,7 +48,6 @@ const SECTION_COLUMNS: Record<string, (d: Record<string, unknown>) => Record<str
   }),
   stats: (d) => ({ stats: d.stats }),
   growthSteps: (d) => ({ growth_steps: d.growthSteps }),
-  industries: (d) => ({ industries: d.industries }),
   finalCta: (d) => ({ final_cta: d.finalCta }),
 };
 
@@ -66,9 +64,6 @@ function validateSection(section: string, d: Record<string, unknown>): string | 
       return null;
     case "growthSteps":
       if (!Array.isArray(d.growthSteps)) return "Growth steps must be a list.";
-      return null;
-    case "industries":
-      if (!Array.isArray(d.industries)) return "Industries must be a list.";
       return null;
     case "finalCta":
       if (!d.finalCta || typeof d.finalCta !== "object") return "Final CTA is required.";

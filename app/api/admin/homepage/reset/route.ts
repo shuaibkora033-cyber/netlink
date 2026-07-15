@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireAdminSupabase } from "@/lib/admin/api";
 import { DEFAULT_HOMEPAGE_CONTENT, DEFAULT_CASE_STUDIES } from "@/lib/data/homepage";
+import { DEFAULT_INDUSTRY_CARDS } from "@/lib/data/industryCards";
 
 /**
  * Explicit, admin-triggered reset — never run automatically. Overwrites the
- * homepage_content singleton row and replaces all case_studies rows with
- * the current code defaults (lib/content.ts). Used to push a positioning
- * change (like agency → lead-gen) into Supabase without hand-retyping every
- * field through the section forms.
+ * homepage_content singleton row and replaces all case_studies and
+ * industry_cards rows with the current code defaults (lib/content.ts). Used
+ * to push a positioning change (like agency → lead-gen) into Supabase
+ * without hand-retyping every field through the section forms.
  */
 export async function POST() {
   const auth = await requireAdminSupabase();
@@ -29,7 +30,6 @@ export async function POST() {
       secondary_cta_link: d.secondaryCtaLink,
       stats: d.stats,
       growth_steps: d.growthSteps,
-      industries: d.industries,
       final_cta: d.finalCta,
       updated_at: new Date().toISOString(),
     })
@@ -61,6 +61,32 @@ export async function POST() {
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  const { error: deleteIndustriesError } = await supabase
+    .from("industry_cards")
+    .delete()
+    .not("id", "is", null);
+
+  if (deleteIndustriesError) {
+    return NextResponse.json({ error: deleteIndustriesError.message }, { status: 500 });
+  }
+
+  const { error: insertIndustriesError } = await supabase.from("industry_cards").insert(
+    DEFAULT_INDUSTRY_CARDS.map((c, i) => ({
+      slug: c.slug,
+      name: c.name,
+      problem: c.problem,
+      solution: c.solution,
+      cta_text: c.ctaText,
+      cta_href: c.ctaHref,
+      order_index: i,
+      is_visible: true,
+    }))
+  );
+
+  if (insertIndustriesError) {
+    return NextResponse.json({ error: insertIndustriesError.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

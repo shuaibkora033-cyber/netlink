@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { clients, type Client } from "@/lib/clients";
+import { type Client } from "@/lib/clients";
+import { DEFAULT_CLIENTS } from "@/lib/data/clients";
 
 // ─── Shared visual tokens ─────────────────────────────────────────────────────
 // Edit ONLY these constants to restyle the entire section at once.
@@ -83,9 +84,9 @@ function LogoCard({ client }: { client: Client }) {
 
 // ─── Section ──────────────────────────────────────────────────────────────────
 
-export function ClientsLogos() {
+export function ClientsLogos({ items = DEFAULT_CLIENTS }: { items?: Client[] }) {
   // Doubled array gives the marquee a seamless loop.
-  const row = [...clients, ...clients];
+  const row = [...items, ...items];
 
   return (
     <section className="relative border-y border-line/60 bg-charcoal/40 py-10 sm:py-12">

@@ -9,10 +9,19 @@ type IndustryCardProps = {
   problem: string;
   solution: string;
   ctaHref: string;
+  ctaText?: string;
 };
 
 /** Industry detail card for the /industries grid — name, problem, how Netlink helps, CTA. */
-export function IndustryCard({ index, id, name, problem, solution, ctaHref }: IndustryCardProps) {
+export function IndustryCard({
+  index,
+  id,
+  name,
+  problem,
+  solution,
+  ctaHref,
+  ctaText = "Book a free consultation",
+}: IndustryCardProps) {
   return (
     <Reveal index={index % 4} className="h-full">
       <div className="group flex h-full flex-col rounded-2xl border border-line bg-white/[0.02] p-6 transition-all duration-300 hover:border-neon/30 hover:bg-neon/[0.03]">
@@ -36,7 +45,7 @@ export function IndustryCard({ index, id, name, problem, solution, ctaHref }: In
           href={ctaHref}
           className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-neon transition-colors hover:text-neon/80"
         >
-          Book a free consultation
+          {ctaText}
           <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">
             →
           </span>

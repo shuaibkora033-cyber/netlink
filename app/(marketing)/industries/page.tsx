@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { PageHero } from "@/components/ui/PageHero";
 import { IndustryCard } from "@/components/ui/IndustryCard";
 import { CTASection } from "@/components/ui/CTASection";
-import { industries, industryDetails, industriesPage } from "@/lib/content";
+import { industriesPage, pageCta } from "@/lib/content";
+import { getIndustryCards } from "@/lib/data/industryCards";
+import { getPageSections, pickSection } from "@/lib/data/pageSections";
 
 export const metadata: Metadata = {
   title: { absolute: "Industries We Serve | Netlink" },
@@ -10,36 +12,51 @@ export const metadata: Metadata = {
     "Netlink helps solar, roofing, real estate, medical, legal, financial, B2B, and local service businesses book more qualified calls.",
 };
 
-export default function IndustriesPage() {
+export default async function IndustriesPage() {
+  const [cards, sections] = await Promise.all([getIndustryCards(), getPageSections("industries")]);
+
+  const hero = pickSection(sections, "hero", industriesPage.hero);
+  const finalCta = pickSection(sections, "finalCta", {
+    eyebrow: pageCta.eyebrow,
+    title: pageCta.title,
+    text: pageCta.text,
+    buttonText: pageCta.buttonText,
+    href: pageCta.href,
+  });
+
   return (
     <>
       <PageHero
-        eyebrow={industriesPage.hero.eyebrow}
-        title={industriesPage.hero.title}
-        subtitle={industriesPage.hero.subtitle}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
         primaryCta={{ text: "Book a Free Growth Consultation", href: "/book-consultation" }}
       />
 
       <section className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-20">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {industries.map((ind, i) => {
-            const details = industryDetails[ind.id];
-            return (
-              <IndustryCard
-                key={ind.id}
-                index={i}
-                id={ind.id}
-                name={ind.name}
-                problem={details.problem}
-                solution={details.solution}
-                ctaHref="/book-consultation"
-              />
-            );
-          })}
+          {cards.map((card, i) => (
+            <IndustryCard
+              key={card.id}
+              index={i}
+              id={card.slug}
+              name={card.name}
+              problem={card.problem}
+              solution={card.solution}
+              ctaHref={card.ctaHref}
+              ctaText={card.ctaText}
+            />
+          ))}
         </div>
       </section>
 
-      <CTASection />
+      <CTASection
+        eyebrow={finalCta.eyebrow}
+        title={finalCta.title}
+        text={finalCta.text}
+        buttonText={finalCta.buttonText}
+        href={finalCta.href}
+      />
     </>
   );
 }

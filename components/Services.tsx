@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, type MouseEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { motion, useMotionValue, useMotionTemplate } from "motion/react";
-import { services, type Service } from "@/lib/content";
+import { DEFAULT_SERVICES, type ServiceItem } from "@/lib/data/services";
 import { SectionHeading } from "./ui/SectionHeading";
 import { Reveal } from "./ui/Reveal";
 
@@ -51,7 +52,7 @@ function ServiceIcon({ id }: { id: string }): ReactNode {
 
 // ─── Bento service card ───────────────────────────────────────────────────────
 
-function ServiceCard({ service, index }: { service: Service; index: number }) {
+function ServiceCard({ service, index }: { service: ServiceItem; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
@@ -86,11 +87,16 @@ function ServiceCard({ service, index }: { service: Service; index: number }) {
           style={{ background: spotlight }}
         />
 
+        {/* Whole-card link overlay when the service has a page link set */}
+        {service.linkHref && (
+          <Link href={service.linkHref} className="absolute inset-0 z-10" aria-label={service.title} />
+        )}
+
         <div className="relative flex h-full flex-col">
           {/* Top row: icon + number */}
           <div className="mb-4 flex items-start justify-between sm:mb-5">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-neon/25 bg-neon/8 text-neon transition-all duration-300 group-hover:border-neon/50 group-hover:bg-neon/12 sm:h-11 sm:w-11">
-              <ServiceIcon id={service.id} />
+              <ServiceIcon id={service.iconKey} />
             </span>
             <span className="font-mono text-xs text-muted/40 transition-colors group-hover:text-neon/60 sm:text-sm">
               {String(index + 1).padStart(2, "0")}
@@ -126,7 +132,7 @@ function ServiceCard({ service, index }: { service: Service; index: number }) {
 
 // ─── Section ─────────────────────────────────────────────────────────────────
 
-export function Services() {
+export function Services({ items = DEFAULT_SERVICES }: { items?: ServiceItem[] }) {
   return (
     <section id="services" className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-24">
       <SectionHeading
@@ -146,7 +152,7 @@ export function Services() {
         Layout: [Lead Gen×2 | Appt×1] [Conversion×1 | Nurturing×1 | Reporting×1]
       */}
       <div className="mt-8 grid gap-4 sm:mt-12 sm:grid-cols-2 lg:grid-cols-3">
-        {services.map((service, i) => (
+        {items.map((service, i) => (
           <ServiceCard key={service.id} service={service} index={i} />
         ))}
       </div>

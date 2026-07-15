@@ -1,10 +1,5 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import { FaqsEditor } from "./FaqsEditor";
 
 export default function AdminFaqsPage() {
-  return (
-    <ComingSoon
-      title="FAQs"
-      description="Edit the questions and answers shown in the FAQ accordion."
-    />
-  );
+  return <FaqsEditor />;
 }

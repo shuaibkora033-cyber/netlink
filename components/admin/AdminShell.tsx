@@ -4,25 +4,58 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard" },
+const TOP_ITEMS = [{ href: "/admin", label: "Dashboard" }] as const;
+
+const PAGE_ITEMS = [
   { href: "/admin/homepage", label: "Homepage" },
+  { href: "/admin/pages/lead-generation", label: "Lead Generation" },
+  { href: "/admin/pages/appointment-setting", label: "Appointment Setting" },
+  { href: "/admin/pages/process", label: "Process" },
+  { href: "/admin/pages/industries", label: "Industries" },
+  { href: "/admin/pages/results", label: "Results" },
+  { href: "/admin/pages/about", label: "About" },
+  { href: "/admin/pages/book-consultation", label: "Book Consultation" },
+] as const;
+
+const CONTENT_ITEMS = [
   { href: "/admin/services", label: "Services" },
   { href: "/admin/clients", label: "Clients" },
   { href: "/admin/faqs", label: "FAQs" },
+  { href: "/admin/case-studies", label: "Case Studies / Results" },
+  { href: "/admin/pages/industries", label: "Industries" },
+] as const;
+
+const BOTTOM_ITEMS = [
   { href: "/admin/theme", label: "Theme" },
   { href: "/admin/settings", label: "Settings" },
 ] as const;
+
+type NavItem = { href: string; label: string };
 
 function isActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavGroup({
+  heading,
+  items,
+  pathname,
+  onNavigate,
+}: {
+  heading?: string;
+  items: readonly NavItem[];
+  pathname: string;
+  onNavigate?: () => void;
+}) {
   return (
-    <nav className="flex flex-col gap-1">
-      {NAV_ITEMS.map((item) => {
+    <div className="flex flex-col gap-1">
+      {heading && (
+        <p className="px-3 pb-1 pt-3 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted/50">
+          {heading}
+        </p>
+      )}
+      {items.map((item) => {
         const active = isActive(pathname, item.href);
         return (
           <Link
@@ -40,6 +73,17 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  return (
+    <nav className="flex flex-col">
+      <NavGroup items={TOP_ITEMS} pathname={pathname} onNavigate={onNavigate} />
+      <NavGroup heading="Pages" items={PAGE_ITEMS} pathname={pathname} onNavigate={onNavigate} />
+      <NavGroup heading="Content" items={CONTENT_ITEMS} pathname={pathname} onNavigate={onNavigate} />
+      <NavGroup items={BOTTOM_ITEMS} pathname={pathname} onNavigate={onNavigate} />
     </nav>
   );
 }

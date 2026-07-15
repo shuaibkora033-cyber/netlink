@@ -1,31 +1,19 @@
 import Link from "next/link";
 
 const LINKS = [
-  {
-    href: "/admin/homepage",
-    title: "Homepage",
-    description: "Hero, stats, growth steps, industries, case studies, and the final CTA.",
-  },
-  {
-    href: "/admin/theme",
-    title: "Theme & settings",
-    description: "Colors, button labels, section visibility, and contact details.",
-  },
-  {
-    href: "/admin/services",
-    title: "Services",
-    description: "Coming in Phase 2.",
-  },
-  {
-    href: "/admin/clients",
-    title: "Clients",
-    description: "Coming in Phase 2.",
-  },
-  {
-    href: "/admin/faqs",
-    title: "FAQs",
-    description: "Coming in Phase 2.",
-  },
+  { href: "/admin/homepage", title: "Homepage", description: "Hero, stats, growth steps, and the final CTA." },
+  { href: "/admin/pages/lead-generation", title: "Lead Generation", description: "Edit the /lead-generation page." },
+  { href: "/admin/pages/appointment-setting", title: "Appointment Setting", description: "Edit the /appointment-setting page." },
+  { href: "/admin/pages/process", title: "Process", description: "Edit the /process page." },
+  { href: "/admin/pages/industries", title: "Industries", description: "Shared industry cards — feeds the homepage grid and /industries." },
+  { href: "/admin/pages/results", title: "Results", description: "Edit the /results page." },
+  { href: "/admin/pages/about", title: "About", description: "Edit the /about page." },
+  { href: "/admin/pages/book-consultation", title: "Book Consultation", description: "Edit the /book-consultation page and form." },
+  { href: "/admin/services", title: "Services", description: "The homepage's solution grid cards." },
+  { href: "/admin/clients", title: "Clients", description: "Client logo marquee data." },
+  { href: "/admin/faqs", title: "FAQs", description: "The FAQ question/answer list." },
+  { href: "/admin/case-studies", title: "Case Studies / Results", description: "Shared with the homepage and /results." },
+  { href: "/admin/theme", title: "Theme & settings", description: "Colors, button labels, section visibility, and contact details." },
 ];
 
 export default function AdminOverviewPage() {
@@ -38,7 +26,7 @@ export default function AdminOverviewPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {LINKS.map((link) => (
           <Link
             key={link.href}

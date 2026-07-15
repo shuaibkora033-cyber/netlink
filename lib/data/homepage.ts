@@ -1,5 +1,6 @@
 import { getPublicSupabase } from "@/lib/supabase/client";
 import { hero, stats, process as growthProcess, industries, contact, caseStudies } from "@/lib/content";
+import { getIndustryCards } from "@/lib/data/industryCards";
 
 export type Stat = { value: number; suffix: string; label: string };
 export type GrowthStep = { num: string; title: string; text: string };
@@ -68,24 +69,36 @@ type HomepageContentRow = {
   secondary_cta_link: string;
   stats: Stat[] | null;
   growth_steps: GrowthStep[] | null;
-  industries: IndustryItem[] | null;
   final_cta: FinalCta | null;
 };
 
 export async function getHomepageContent(): Promise<HomepageContent> {
   const supabase = getPublicSupabase();
-  if (!supabase) return DEFAULT_HOMEPAGE_CONTENT;
+  // Industries are now a single shared dataset (industry_cards table, via
+  // getIndustryCards) also used by the /industries page — the
+  // homepage_content.industries column below is no longer written to and is
+  // only kept for backward compatibility with old rows; it's never read.
+  const industriesPromise = getIndustryCards().then((cards) =>
+    cards.map((c) => ({ id: c.slug, name: c.name }))
+  );
+
+  if (!supabase) {
+    return { ...DEFAULT_HOMEPAGE_CONTENT, industries: await industriesPromise };
+  }
 
   try {
-    const { data, error } = await supabase
-      .from("homepage_content")
-      .select(
-        "hero_badge, hero_headline, hero_rotating_words, hero_subheadline, primary_cta_text, primary_cta_link, secondary_cta_text, secondary_cta_link, stats, growth_steps, industries, final_cta"
-      )
-      .eq("id", 1)
-      .maybeSingle<HomepageContentRow>();
+    const [{ data, error }, sharedIndustries] = await Promise.all([
+      supabase
+        .from("homepage_content")
+        .select(
+          "hero_badge, hero_headline, hero_rotating_words, hero_subheadline, primary_cta_text, primary_cta_link, secondary_cta_text, secondary_cta_link, stats, growth_steps, final_cta"
+        )
+        .eq("id", 1)
+        .maybeSingle<HomepageContentRow>(),
+      industriesPromise,
+    ]);
 
-    if (error || !data) return DEFAULT_HOMEPAGE_CONTENT;
+    if (error || !data) return { ...DEFAULT_HOMEPAGE_CONTENT, industries: sharedIndustries };
 
     return {
       heroBadge: data.hero_badge ?? DEFAULT_HOMEPAGE_CONTENT.heroBadge,
@@ -104,14 +117,11 @@ export async function getHomepageContent(): Promise<HomepageContent> {
         data.growth_steps && data.growth_steps.length > 0
           ? data.growth_steps
           : DEFAULT_HOMEPAGE_CONTENT.growthSteps,
-      industries:
-        data.industries && data.industries.length > 0
-          ? data.industries
-          : DEFAULT_HOMEPAGE_CONTENT.industries,
+      industries: sharedIndustries,
       finalCta: data.final_cta ?? DEFAULT_HOMEPAGE_CONTENT.finalCta,
     };
   } catch {
-    return DEFAULT_HOMEPAGE_CONTENT;
+    return { ...DEFAULT_HOMEPAGE_CONTENT, industries: await industriesPromise.catch(() => DEFAULT_HOMEPAGE_CONTENT.industries) };
   }
 }
 

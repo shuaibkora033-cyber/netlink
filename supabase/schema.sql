@@ -193,6 +193,82 @@ drop policy if exists "public can read visible case_studies" on case_studies;
 create policy "public can read visible case_studies" on case_studies
   for select to anon using (is_visible = true);
 
+-- ── content_sections ─────────────────────────────────────────────────────────
+-- Generic per-page, per-section content store for the multi-page site (every
+-- route except the homepage, which keeps its own dedicated homepage_content
+-- table/editor). One row per (page_slug, section_key): a save only ever
+-- touches that single row, so editing one section can never overwrite
+-- another, and the unique constraint makes every save a safe upsert instead
+-- of risking duplicate rows.
+--
+-- page_slug:    'lead-generation' | 'appointment-setting' | 'process' |
+--               'industries' | 'results' | 'about' | 'book-consultation'
+-- section_key:  mirrors the static content object keys in lib/content.ts
+--               (e.g. leadGenPage.hero → page_slug='lead-generation',
+--               section_key='hero'), so the public-site fallback merge is
+--               a trivial per-key lookup.
+--
+-- No rows are required for the site to work: when a (page_slug, section_key)
+-- row doesn't exist yet, both the public pages and the admin editors fall
+-- back to the static defaults already in lib/content.ts. The first admin
+-- save for a section creates its row.
+create table if not exists content_sections (
+  id          uuid primary key default gen_random_uuid(),
+  page_slug   text not null,
+  section_key text not null,
+  content     jsonb not null default '{}'::jsonb,
+  is_visible  boolean not null default true,
+  order_index int not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (page_slug, section_key)
+);
+alter table content_sections enable row level security;
+drop policy if exists "public can read visible content_sections" on content_sections;
+create policy "public can read visible content_sections" on content_sections
+  for select to anon using (is_visible = true);
+
+-- ── industry_cards ───────────────────────────────────────────────────────────
+-- Single source of truth for industries — feeds both the homepage's compact
+-- industries grid and the full /industries page's detail cards, so there is
+-- exactly one place to edit an industry instead of two.
+create table if not exists industry_cards (
+  id          uuid primary key default gen_random_uuid(),
+  slug        text not null unique,
+  name        text not null,
+  problem     text not null default '',
+  solution    text not null default '',
+  cta_text    text not null default 'Book a Free Growth Consultation',
+  cta_href    text not null default '/book-consultation',
+  is_visible  boolean not null default true,
+  order_index int not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+alter table industry_cards enable row level security;
+drop policy if exists "public can read visible industry_cards" on industry_cards;
+create policy "public can read visible industry_cards" on industry_cards
+  for select to anon using (is_visible = true);
+
+insert into industry_cards (slug, name, problem, solution, order_index) values
+  ('solar', 'Solar Companies', 'Solar leads are expensive, and unqualified leads waste sales reps'' time on homeowners who can''t finance the system.', 'We qualify leads on homeownership, roof condition, and financing intent before they reach your closers.', 0),
+  ('home-services', 'Roofing & Home Improvement', 'Roofing and home improvement leads spike seasonally and are often shopping three other quotes.', 'We build always-on campaigns and fast follow-up so you''re first to call, not the last quote received.', 1),
+  ('real-estate', 'Real Estate & Investment Services', 'Real estate and investment leads go cold fast if they aren''t contacted within minutes.', 'Automated instant response plus a structured nurture sequence keeps prospects engaged until they''re ready to talk.', 2),
+  ('healthcare', 'Medical & Clinics', 'Medical and clinic inquiries need a compliant, trustworthy funnel — not a generic lead form.', 'We build patient-friendly booking flows and qualification that respect the sensitivity of the inquiry.', 3),
+  ('legal', 'Legal Services', 'Legal leads vary wildly in case quality, and intake teams waste hours on cases outside their practice.', 'Qualifying questions filter by case type and urgency before a lead reaches your intake team.', 4),
+  ('finance', 'Financial Services', 'Financial services leads require trust-building before prospects will share sensitive information.', 'We use educational funnels and qualification steps that build credibility before the ask.', 5),
+  ('b2b', 'B2B Service Providers', 'B2B service leads often stall in long sales cycles with no consistent follow-up system.', 'A structured, multi-touch nurture sequence keeps your pipeline warm across longer buying cycles.', 6),
+  ('local-service', 'Local Service Businesses', 'Local service businesses compete on speed — the first business to respond usually wins the job.', 'Instant lead response and booking means you''re talking to the prospect while competitors are still typing an email.', 7)
+on conflict (slug) do nothing;
+
+-- ── Additive columns for the admin CMS (safe: nullable, no data loss) ────────
+alter table services add column if not exists link_href text;
+alter table faqs add column if not exists related_page text;
+alter table case_studies add column if not exists challenge text;
+alter table case_studies add column if not exists solution text;
+alter table case_studies add column if not exists result text;
+alter table clients add column if not exists scale numeric;
+
 -- ── media_files ──────────────────────────────────────────────────────────────
 -- Metadata for files uploaded to Supabase Storage (e.g. client logos).
 -- Not read by the public site directly; admin-only.

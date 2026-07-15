@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/ui/PageHero";
 import { Reveal } from "@/components/ui/Reveal";
-import { BookConsultationForm } from "@/components/BookConsultationForm";
+import { BookConsultationForm, DEFAULT_BOOK_CONSULTATION_FORM } from "@/components/BookConsultationForm";
 import { bookConsultationPage } from "@/lib/content";
+import { getPageSections, pickSection } from "@/lib/data/pageSections";
 
 export const metadata: Metadata = {
   title: { absolute: "Book a Free Growth Consultation | Netlink" },
@@ -17,31 +18,36 @@ function CheckIcon() {
   );
 }
 
-export default function BookConsultationPage() {
+export default async function BookConsultationPage() {
+  const sections = await getPageSections("book-consultation");
+
+  const hero = pickSection(sections, "hero", bookConsultationPage.hero);
+  const qualification = pickSection(sections, "qualification", {
+    eyebrow: "",
+    title: bookConsultationPage.qualification.title,
+    text: bookConsultationPage.qualification.text,
+    bullets: bookConsultationPage.qualification.bullets,
+  });
+  const formConfig = pickSection(sections, "formConfig", DEFAULT_BOOK_CONSULTATION_FORM);
+
   return (
     <>
-      <PageHero
-        eyebrow={bookConsultationPage.hero.eyebrow}
-        title={bookConsultationPage.hero.title}
-        subtitle={bookConsultationPage.hero.subtitle}
-      />
+      <PageHero eyebrow={hero.eyebrow} title={hero.title} subtitle={hero.subtitle} />
 
       <section className="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-2 lg:gap-20">
         {/* Qualification copy */}
         <div className="lg:sticky lg:top-28">
           <Reveal>
-            <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-              {bookConsultationPage.qualification.title}
-            </h2>
+            <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">{qualification.title}</h2>
           </Reveal>
           <Reveal index={1}>
             <p className="mt-4 max-w-md text-pretty text-sm leading-relaxed text-muted sm:text-base">
-              {bookConsultationPage.qualification.text}
+              {qualification.text}
             </p>
           </Reveal>
           <Reveal index={2}>
             <ul className="mt-6 flex flex-col gap-3 sm:mt-8 sm:gap-4">
-              {bookConsultationPage.qualification.bullets.map((b) => (
+              {qualification.bullets.map((b) => (
                 <li key={b} className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neon/12 text-neon ring-1 ring-neon/20">
                     <CheckIcon />
@@ -55,7 +61,7 @@ export default function BookConsultationPage() {
 
         {/* Form */}
         <Reveal index={1}>
-          <BookConsultationForm />
+          <BookConsultationForm config={formConfig} />
         </Reveal>
       </section>
     </>

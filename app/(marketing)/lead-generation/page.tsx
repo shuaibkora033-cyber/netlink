@@ -3,7 +3,8 @@ import { PageHero } from "@/components/ui/PageHero";
 import { ServiceCardGrid } from "@/components/ui/ServiceCardGrid";
 import { CTASection } from "@/components/ui/CTASection";
 import { Problem } from "@/components/Problem";
-import { leadGenPage } from "@/lib/content";
+import { leadGenPage, problem as problemContent, pageCta } from "@/lib/content";
+import { getPageSections, pickSection } from "@/lib/data/pageSections";
 
 export const metadata: Metadata = {
   title: { absolute: "Lead Generation Services for Service Businesses | Netlink" },
@@ -11,50 +12,82 @@ export const metadata: Metadata = {
     "Generate qualified leads with high-converting funnels, paid ads, tracking, and optimization.",
 };
 
-export default function LeadGenerationPage() {
+export default async function LeadGenerationPage() {
+  const sections = await getPageSections("lead-generation");
+
+  const hero = pickSection(sections, "hero", leadGenPage.hero);
+  const problemData = pickSection(sections, "problem", {
+    eyebrow: problemContent.eyebrow,
+    title: problemContent.title,
+    subtitle: problemContent.body,
+    items: problemContent.points,
+  });
+  const whatWeDo = pickSection(sections, "whatWeDo", leadGenPage.whatWeDo);
+  const funnelAdsTracking = pickSection(sections, "funnelAdsTracking", leadGenPage.funnelAdsTracking);
+  const leadQuality = pickSection(sections, "leadQuality", leadGenPage.leadQuality);
+  const reporting = pickSection(sections, "reporting", leadGenPage.reporting);
+  const finalCta = pickSection(sections, "finalCta", {
+    eyebrow: pageCta.eyebrow,
+    title: pageCta.title,
+    text: pageCta.text,
+    buttonText: pageCta.buttonText,
+    href: pageCta.href,
+  });
+
   return (
     <>
       <PageHero
-        eyebrow={leadGenPage.hero.eyebrow}
-        title={leadGenPage.hero.title}
-        subtitle={leadGenPage.hero.subtitle}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
         primaryCta={{ text: "Book a Free Growth Consultation", href: "/book-consultation" }}
       />
 
       {/* The problem with random leads */}
-      <Problem />
+      <Problem
+        eyebrow={problemData.eyebrow}
+        title={problemData.title}
+        body={problemData.subtitle}
+        points={problemData.items}
+      />
 
       <ServiceCardGrid
-        eyebrow={leadGenPage.whatWeDo.eyebrow}
-        title={leadGenPage.whatWeDo.title}
-        subtitle={leadGenPage.whatWeDo.subtitle}
-        items={leadGenPage.whatWeDo.items}
+        eyebrow={whatWeDo.eyebrow}
+        title={whatWeDo.title}
+        subtitle={whatWeDo.subtitle}
+        items={whatWeDo.items}
       />
 
       <ServiceCardGrid
         tone="muted"
-        eyebrow={leadGenPage.funnelAdsTracking.eyebrow}
-        title={leadGenPage.funnelAdsTracking.title}
-        subtitle={leadGenPage.funnelAdsTracking.subtitle}
-        items={leadGenPage.funnelAdsTracking.items}
+        eyebrow={funnelAdsTracking.eyebrow}
+        title={funnelAdsTracking.title}
+        subtitle={funnelAdsTracking.subtitle}
+        items={funnelAdsTracking.items}
       />
 
       <ServiceCardGrid
-        eyebrow={leadGenPage.leadQuality.eyebrow}
-        title={leadGenPage.leadQuality.title}
-        subtitle={leadGenPage.leadQuality.subtitle}
-        items={leadGenPage.leadQuality.items}
+        eyebrow={leadQuality.eyebrow}
+        title={leadQuality.title}
+        subtitle={leadQuality.subtitle}
+        items={leadQuality.items}
       />
 
       <ServiceCardGrid
         tone="muted"
-        eyebrow={leadGenPage.reporting.eyebrow}
-        title={leadGenPage.reporting.title}
-        subtitle={leadGenPage.reporting.subtitle}
-        items={leadGenPage.reporting.items}
+        eyebrow={reporting.eyebrow}
+        title={reporting.title}
+        subtitle={reporting.subtitle}
+        items={reporting.items}
       />
 
-      <CTASection />
+      <CTASection
+        eyebrow={finalCta.eyebrow}
+        title={finalCta.title}
+        text={finalCta.text}
+        buttonText={finalCta.buttonText}
+        href={finalCta.href}
+      />
     </>
   );
 }

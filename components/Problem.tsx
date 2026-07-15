@@ -31,21 +31,31 @@ const ICONS = [
   </svg>,
 ];
 
-export function Problem() {
+type ProblemPoint = { title: string; text: string };
+
+type ProblemProps = {
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  points?: ProblemPoint[];
+};
+
+export function Problem({
+  eyebrow = problem.eyebrow,
+  title = problem.title,
+  body = problem.body,
+  points = problem.points,
+}: ProblemProps = {}) {
   return (
     <section className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-24">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute left-0 top-1/2 -z-10 h-96 w-96 -translate-y-1/2 rounded-full bg-red-500/5 blur-[100px]" />
 
-      <SectionHeading
-        eyebrow={problem.eyebrow}
-        title={problem.title}
-        subtitle={problem.body}
-      />
+      <SectionHeading eyebrow={eyebrow} title={title} subtitle={body} />
 
       <div className="mt-10 grid gap-4 sm:mt-16 sm:grid-cols-2 lg:grid-cols-4">
-        {problem.points.map((p, i) => (
-          <Reveal key={p.title} index={i} className="h-full">
+        {points.map((p, i) => (
+          <Reveal key={`${p.title}-${i}`} index={i} className="h-full">
             <motion.div
               whileHover={{ y: -3 }}
               transition={{ type: "spring", stiffness: 300, damping: 24 }}
@@ -65,7 +75,7 @@ export function Problem() {
               <div className="relative">
                 {/* Icon */}
                 <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/8 text-red-400 sm:mb-5 sm:h-12 sm:w-12">
-                  {ICONS[i]}
+                  {ICONS[i % ICONS.length]}
                 </span>
 
                 <h3 className="text-lg font-semibold tracking-tight text-fg">

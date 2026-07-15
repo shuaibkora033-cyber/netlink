@@ -7,6 +7,7 @@ import { CaseStudies } from "@/components/CaseStudies";
 import { Contact } from "@/components/Contact";
 import { getHomepageContent, getCaseStudies } from "@/lib/data/homepage";
 import { getThemeSettings } from "@/lib/data/theme";
+import { getServices } from "@/lib/data/services";
 
 // Without this, Next prerenders "/" once at build time (no cookies/headers/
 // searchParams are used here to trigger dynamic rendering automatically),
@@ -21,10 +22,11 @@ export const dynamic = "force-dynamic";
 // /results) plus the final CTA/contact form. Still fully Supabase-driven
 // and admin-editable via /admin/homepage and /admin/theme, unchanged.
 export default async function Home() {
-  const [content, caseStudies, theme] = await Promise.all([
+  const [content, caseStudies, theme, services] = await Promise.all([
     getHomepageContent(),
     getCaseStudies(),
     getThemeSettings(),
+    getServices(),
   ]);
   const show = theme.sectionVisibility;
 
@@ -37,7 +39,7 @@ export default async function Home() {
       {show.problem && <Problem />}
 
       {/* 3 — Short solution overview */}
-      {show.services && <Services />}
+      {show.services && <Services items={services} />}
 
       {/* 4 — Short process preview */}
       {show.growthSystem && <GrowthSystem steps={content.growthSteps} />}

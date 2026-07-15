@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("case_studies")
-    .select("id, industry, title, body, metrics, order_index, is_visible")
+    .select("id, industry, title, body, challenge, solution, result, metrics, order_index, is_visible")
     .order("order_index", { ascending: true });
 
   if (error) {
@@ -43,6 +43,9 @@ export async function POST(request: Request) {
       industry: typeof body.industry === "string" ? body.industry : "",
       title: body.title,
       body: body.body,
+      challenge: typeof body.challenge === "string" ? body.challenge : null,
+      solution: typeof body.solution === "string" ? body.solution : null,
+      result: typeof body.result === "string" ? body.result : null,
       metrics: Array.isArray(body.metrics) ? body.metrics : [],
       order_index: typeof body.order_index === "number" ? body.order_index : 0,
       is_visible: typeof body.is_visible === "boolean" ? body.is_visible : true,

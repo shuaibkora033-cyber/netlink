@@ -3,7 +3,8 @@ import { PageHero } from "@/components/ui/PageHero";
 import { ServiceCardGrid } from "@/components/ui/ServiceCardGrid";
 import { CTASection } from "@/components/ui/CTASection";
 import { DashboardReporting } from "@/components/DashboardReporting";
-import { apptSettingPage } from "@/lib/content";
+import { apptSettingPage, pageCta } from "@/lib/content";
+import { getPageSections, pickSection } from "@/lib/data/pageSections";
 
 export const metadata: Metadata = {
   title: { absolute: "Appointment Setting Services | Netlink" },
@@ -11,55 +12,77 @@ export const metadata: Metadata = {
     "Turn qualified leads into booked sales calls with structured follow-up, qualification, and CRM workflows.",
 };
 
-export default function AppointmentSettingPage() {
+export default async function AppointmentSettingPage() {
+  const sections = await getPageSections("appointment-setting");
+
+  const hero = pickSection(sections, "hero", apptSettingPage.hero);
+  const whyLeadsGoCold = pickSection(sections, "whyLeadsGoCold", apptSettingPage.whyLeadsGoCold);
+  const followUpWorkflow = pickSection(sections, "followUpWorkflow", apptSettingPage.followUpWorkflow);
+  const leadQualification = pickSection(sections, "leadQualification", apptSettingPage.leadQualification);
+  const bookingSystem = pickSection(sections, "bookingSystem", apptSettingPage.bookingSystem);
+  const crmPipeline = pickSection(sections, "crmPipeline", apptSettingPage.crmPipeline);
+  const finalCta = pickSection(sections, "finalCta", {
+    eyebrow: pageCta.eyebrow,
+    title: pageCta.title,
+    text: pageCta.text,
+    buttonText: pageCta.buttonText,
+    href: pageCta.href,
+  });
+
   return (
     <>
       <PageHero
-        eyebrow={apptSettingPage.hero.eyebrow}
-        title={apptSettingPage.hero.title}
-        subtitle={apptSettingPage.hero.subtitle}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
         primaryCta={{ text: "Book a Free Growth Consultation", href: "/book-consultation" }}
       />
 
       <ServiceCardGrid
-        eyebrow={apptSettingPage.whyLeadsGoCold.eyebrow}
-        title={apptSettingPage.whyLeadsGoCold.title}
-        subtitle={apptSettingPage.whyLeadsGoCold.subtitle}
-        items={apptSettingPage.whyLeadsGoCold.items}
+        eyebrow={whyLeadsGoCold.eyebrow}
+        title={whyLeadsGoCold.title}
+        subtitle={whyLeadsGoCold.subtitle}
+        items={whyLeadsGoCold.items}
       />
 
       <ServiceCardGrid
         tone="muted"
-        eyebrow={apptSettingPage.followUpWorkflow.eyebrow}
-        title={apptSettingPage.followUpWorkflow.title}
-        subtitle={apptSettingPage.followUpWorkflow.subtitle}
-        items={apptSettingPage.followUpWorkflow.items}
+        eyebrow={followUpWorkflow.eyebrow}
+        title={followUpWorkflow.title}
+        subtitle={followUpWorkflow.subtitle}
+        items={followUpWorkflow.items}
       />
 
       <ServiceCardGrid
-        eyebrow={apptSettingPage.leadQualification.eyebrow}
-        title={apptSettingPage.leadQualification.title}
-        subtitle={apptSettingPage.leadQualification.subtitle}
-        items={apptSettingPage.leadQualification.items}
+        eyebrow={leadQualification.eyebrow}
+        title={leadQualification.title}
+        subtitle={leadQualification.subtitle}
+        items={leadQualification.items}
       />
 
       <ServiceCardGrid
         tone="muted"
-        eyebrow={apptSettingPage.bookingSystem.eyebrow}
-        title={apptSettingPage.bookingSystem.title}
-        subtitle={apptSettingPage.bookingSystem.subtitle}
-        items={apptSettingPage.bookingSystem.items}
+        eyebrow={bookingSystem.eyebrow}
+        title={bookingSystem.title}
+        subtitle={bookingSystem.subtitle}
+        items={bookingSystem.items}
       />
 
       {/* CRM and pipeline visibility */}
       <DashboardReporting
-        eyebrow={apptSettingPage.crmPipeline.eyebrow}
-        title={apptSettingPage.crmPipeline.title}
-        text={apptSettingPage.crmPipeline.text}
-        bullets={apptSettingPage.crmPipeline.bullets}
+        eyebrow={crmPipeline.eyebrow}
+        title={crmPipeline.title}
+        text={crmPipeline.text}
+        bullets={crmPipeline.bullets}
       />
 
-      <CTASection />
+      <CTASection
+        eyebrow={finalCta.eyebrow}
+        title={finalCta.title}
+        text={finalCta.text}
+        buttonText={finalCta.buttonText}
+        href={finalCta.href}
+      />
     </>
   );
 }

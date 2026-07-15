@@ -1,10 +1,5 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import { ClientsEditor } from "./ClientsEditor";
 
 export default function AdminClientsPage() {
-  return (
-    <ComingSoon
-      title="Clients"
-      description="Manage the client logos shown in the homepage marquee."
-    />
-  );
+  return <ClientsEditor />;
 }

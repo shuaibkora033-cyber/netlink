@@ -24,6 +24,9 @@ export async function PUT(
   if (typeof body.industry === "string") update.industry = body.industry;
   if (typeof body.title === "string") update.title = body.title;
   if (typeof body.body === "string") update.body = body.body;
+  if (typeof body.challenge === "string") update.challenge = body.challenge;
+  if (typeof body.solution === "string") update.solution = body.solution;
+  if (typeof body.result === "string") update.result = body.result;
   if (Array.isArray(body.metrics)) update.metrics = body.metrics;
   if (typeof body.order_index === "number") update.order_index = body.order_index;
   if (typeof body.is_visible === "boolean") update.is_visible = body.is_visible;
