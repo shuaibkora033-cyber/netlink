@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const LINKS = [
+  { href: "/admin/leads", title: "Leads", description: "Consultation requests submitted through /book-consultation." },
   { href: "/admin/homepage", title: "Homepage", description: "Hero, stats, growth steps, and the final CTA." },
   { href: "/admin/pages/lead-generation", title: "Lead Generation", description: "Edit the /lead-generation page." },
   { href: "/admin/pages/appointment-setting", title: "Appointment Setting", description: "Edit the /appointment-setting page." },

@@ -340,3 +340,64 @@ insert into case_studies (industry, title, body, metrics, order_index, is_visibl
   ('Professional services', '+210% Qualified Sales Calls', 'New conversion funnel plus managed appointment setting nearly tripled booked consultations for a B2B service provider.',
     '[{"value": "+210%", "label": "Qualified sales calls"}, {"value": "91%", "label": "Lead response rate"}]'::jsonb, 2, true)
 on conflict do nothing;
+
+-- ── consultation_leads ───────────────────────────────────────────────────────
+-- Submissions from the /book-consultation form. RLS enabled, no policies at
+-- all — same pattern as admin_users: neither the anon key nor any other role
+-- besides service_role can read or write this table. The public form never
+-- talks to Supabase directly; it POSTs to app/api/consultation-leads, which
+-- validates/normalizes/scores the submission server-side and writes with the
+-- service-role client. Admin reads/updates go through app/api/admin/leads/*,
+-- gated by requireAdminSupabase() like every other admin route.
+create table if not exists consultation_leads (
+  id                        uuid primary key default gen_random_uuid(),
+  full_name                 text not null,
+  email                      text not null,
+  phone                      text not null,
+  company_name               text,
+  website_url                text,
+  service_needed             text,
+  industry                   text,
+  monthly_marketing_budget   text,
+  current_lead_source        text,
+  main_problem               text,
+  preferred_contact_method   text,
+  message                    text,
+  status                     text not null default 'new'
+    check (status in ('new', 'contacted', 'qualified', 'booked', 'not_qualified', 'lost')),
+  lead_score                 integer not null default 0,
+  admin_notes                text,
+  utm_source                 text,
+  utm_medium                 text,
+  utm_campaign               text,
+  utm_term                   text,
+  utm_content                text,
+  page_url                   text,
+  referrer                   text,
+  created_at                 timestamptz not null default now(),
+  updated_at                 timestamptz not null default now()
+);
+alter table consultation_leads enable row level security;
+-- No policies: only service_role (which bypasses RLS) can read/write this table.
+
+create index if not exists consultation_leads_status_idx on consultation_leads (status);
+create index if not exists consultation_leads_created_at_idx on consultation_leads (created_at desc);
+
+-- ── Leads dashboard follow-up fields (additive, safe to re-run) ──────────────
+alter table consultation_leads
+  add column if not exists follow_up_date timestamptz,
+  add column if not exists last_contacted_at timestamptz,
+  add column if not exists archived boolean default false;
+
+create index if not exists consultation_leads_archived_idx on consultation_leads (archived);
+
+-- ── site-media storage bucket ────────────────────────────────────────────────
+-- Public bucket: reads are served via /storage/v1/object/public/site-media/...
+-- with no RLS SELECT policy needed (that's what "public" means to Storage).
+-- Writes (upload/delete) only ever happen through app/api/admin/media/* routes
+-- using the service-role client (bypasses RLS), gated by requireAdminSupabase()
+-- like every other admin route — so, same as consultation_leads/admin_users, no
+-- storage.objects policies are needed at all; nothing but service_role can write.
+insert into storage.buckets (id, name, public)
+values ('site-media', 'site-media', true)
+on conflict (id) do nothing;

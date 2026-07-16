@@ -4,7 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const TOP_ITEMS = [{ href: "/admin", label: "Dashboard" }] as const;
+const TOP_ITEMS = [
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/leads", label: "Leads" },
+  { href: "/admin/media", label: "Media" },
+] as const;
 
 const PAGE_ITEMS = [
   { href: "/admin/homepage", label: "Homepage" },

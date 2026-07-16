@@ -25,6 +25,12 @@ type PageHeroProps = {
   subtitle?: ReactNode;
   primaryCta?: { text: string; href: string };
   secondaryCta?: { text: string; href: string };
+  /** Optional full-bleed background media behind the hero (CMS-uploaded via
+   * Supabase Storage). At most one is used — video takes priority over
+   * image when both are set. Omit both for the plain GlowBackground look
+   * every other subpage hero already uses. */
+  backgroundImageUrl?: string;
+  backgroundVideoUrl?: string;
 };
 
 /**
@@ -32,9 +38,37 @@ type PageHeroProps = {
  * Hero (GlowBackground, staggered fade-up, eyebrow badge), without the
  * rotating keyword / stats / pipeline strip. Renders the page's H1.
  */
-export function PageHero({ eyebrow, title, subtitle, primaryCta, secondaryCta }: PageHeroProps) {
+export function PageHero({
+  eyebrow,
+  title,
+  subtitle,
+  primaryCta,
+  secondaryCta,
+  backgroundImageUrl,
+  backgroundVideoUrl,
+}: PageHeroProps) {
   return (
     <section className="relative flex flex-col items-center overflow-clip px-4 pb-12 pt-32 text-center sm:px-6 sm:pb-16 sm:pt-36">
+      {backgroundVideoUrl ? (
+        <video
+          src={backgroundVideoUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30"
+        />
+      ) : backgroundImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- arbitrary CMS-uploaded Storage URL
+        <img
+          src={backgroundImageUrl}
+          alt=""
+          className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30"
+        />
+      ) : null}
+      {(backgroundImageUrl || backgroundVideoUrl) && (
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-ink/60 via-ink/70 to-ink" />
+      )}
       <GlowBackground />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-b from-transparent to-ink" />
 
