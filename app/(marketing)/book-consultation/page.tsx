@@ -3,7 +3,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Reveal } from "@/components/ui/Reveal";
 import { ProofGuaranteesSection } from "@/components/ui/ProofGuaranteesSection";
-import { VideoProofCard } from "@/components/ui/VideoProofCard";
+import { VideoReelCard } from "@/components/ui/VideoReelCard";
 import { FeedbackProofGrid, type FeedbackItem } from "@/components/ui/FeedbackProofGrid";
 import { TrustStepsCard } from "@/components/ui/TrustStepsCard";
 import { CTASection } from "@/components/ui/CTASection";
@@ -192,23 +192,28 @@ export default async function BookConsultationPage() {
         />
       )}
 
-      {videoProof.visible && (
-        <VideoProofCard
-          eyebrow={videoProof.eyebrow}
-          title={videoProof.title}
-          text={videoProof.text}
-          videoSrc={videoSrc}
-          posterSrc={posterSrc}
-          placeholderText={videoProof.placeholderText}
-        />
-      )}
-
       {feedbackItems.length > 0 && (
         <FeedbackProofGrid eyebrow={feedbackUgc.eyebrow} title={feedbackUgc.title} text={feedbackUgc.text} items={feedbackItems} />
       )}
 
-      <section id="book-consultation-form" className="relative mx-auto grid max-w-4xl gap-10 px-4 py-14 sm:px-6 md:py-20">
-        <div className="flex flex-col gap-6">
+      <section
+        id="book-consultation-form"
+        className="relative mx-auto flex max-w-5xl flex-col gap-10 px-4 py-14 sm:px-6 md:py-20 lg:flex-row lg:items-start lg:gap-12"
+      >
+        {videoProof.visible && (
+          <div className="lg:w-[320px] lg:shrink-0">
+            <VideoReelCard
+              eyebrow={videoProof.eyebrow}
+              title={videoProof.title}
+              text={videoProof.text}
+              videoSrc={videoSrc}
+              posterSrc={posterSrc}
+              placeholderText={videoProof.placeholderText}
+            />
+          </div>
+        )}
+
+        <div className="flex flex-1 flex-col gap-6">
           <Reveal>
             <BookConsultationForm
               config={{ formTitle: formSettings.formTitle, formNote: formSettings.formNote, submitLabel: formSettings.submitLabel }}
