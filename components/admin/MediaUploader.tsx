@@ -1,7 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { StorageFolder } from "@/lib/media";
+import {
+  type StorageFolder,
+  MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
+  isImageType,
+  isVideoType,
+} from "@/lib/media";
 
 type Kind = "image" | "video" | "image,video";
 
@@ -15,6 +21,19 @@ function acceptAttr(kind: Kind): string {
   if (kind === "image") return "image/jpeg,image/png,image/webp,image/svg+xml";
   if (kind === "video") return "video/mp4,video/webm";
   return "image/jpeg,image/png,image/webp,image/svg+xml,video/mp4,video/webm";
+}
+
+/** Parses a fetch Response as JSON without ever throwing — a 413 from a
+ * reverse proxy (nginx, etc.) typically returns an HTML error page, not
+ * JSON, and letting `res.json()` throw would surface a raw
+ * "Unexpected token '<'..." parse error to the admin instead of a real
+ * message. */
+async function safeJson(res: Response): Promise<{ error?: string; url?: string } | null> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -46,18 +65,48 @@ export function MediaUploader({
   async function uploadFile(file: File) {
     setState("uploading");
     setError(null);
+
+    // Client-side size/type validation before we ever hit the network — the
+    // server validates this too (never trust the client), but catching it
+    // here avoids a round trip and gives an immediate, specific message.
+    const isVideo = isVideoType(file.type);
+    const isImage = isImageType(file.type);
+    if (!isVideo && !isImage) {
+      setError("Unsupported file type.");
+      setState("error");
+      return;
+    }
+    if (isVideo && file.size > MAX_VIDEO_BYTES) {
+      setError("Video is too large. Please upload a video under 50MB.");
+      setState("error");
+      return;
+    }
+    if (isImage && file.size > MAX_IMAGE_BYTES) {
+      setError("Image is too large. Please upload an image under 5MB.");
+      setState("error");
+      return;
+    }
+
     try {
       const form = new FormData();
       form.append("file", file);
       form.append("folder", folder);
       const res = await fetch("/api/admin/media/upload", { method: "POST", body: form });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Upload failed.");
+
+      if (res.status === 413) {
+        throw new Error("Upload failed because the server upload limit is too low or the file is too large.");
+      }
+
+      const json = await safeJson(res);
+      if (!res.ok || !json?.url) {
+        throw new Error(json?.error || "Upload failed. Please try again.");
+      }
+
       onChange(json.url);
       setState("success");
       setTimeout(() => setState((s) => (s === "success" ? "idle" : s)), 2000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
+      setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
       setState("error");
     }
   }
