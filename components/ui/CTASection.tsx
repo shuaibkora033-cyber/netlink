@@ -21,9 +21,16 @@ export function CTASection({
   eyebrow = pageCta.eyebrow,
   title = pageCta.title,
   text = pageCta.text,
-  buttonText = pageCta.buttonText,
+  buttonText,
   href = pageCta.href,
 }: CTASectionProps) {
+  // `buttonText` is often passed explicitly from CMS-loaded content, which
+  // can be an empty string rather than undefined — a default parameter only
+  // covers the undefined case, so an empty CMS value would otherwise render
+  // the button with no visible label (just the arrow icon). Guard here so
+  // the button is never rendered without readable text.
+  const resolvedButtonText = buttonText && buttonText.trim() ? buttonText : pageCta.buttonText;
+
   return (
     <section className="relative overflow-clip py-14 md:py-24">
       <GlowBackground className="opacity-50" />
@@ -48,7 +55,7 @@ export function CTASection({
         </Reveal>
         <Reveal index={3}>
           <div className="mt-8">
-            <CtaButton href={href}>{buttonText}</CtaButton>
+            <CtaButton href={href}>{resolvedButtonText}</CtaButton>
           </div>
         </Reveal>
       </div>

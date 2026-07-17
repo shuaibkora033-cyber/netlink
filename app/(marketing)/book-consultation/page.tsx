@@ -232,8 +232,8 @@ export default async function BookConsultationPage() {
           eyebrow={finalCta.eyebrow}
           title={finalCta.title}
           text={finalCta.text}
-          buttonText={finalCta.buttonText}
-          href={finalCta.href}
+          buttonText={finalCta.buttonText || DEFAULT_FINAL_CTA.buttonText}
+          href={finalCta.href || DEFAULT_FINAL_CTA.href}
         />
       )}
     </>

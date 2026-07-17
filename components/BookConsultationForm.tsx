@@ -411,7 +411,7 @@ export function BookConsultationForm({
               </>
             ) : (
               <>
-                {config.submitLabel}
+                {config.submitLabel || DEFAULT_BOOK_CONSULTATION_FORM.submitLabel}
                 <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">→</span>
               </>
             )}
