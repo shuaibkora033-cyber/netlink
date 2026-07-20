@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireFreshRole } from "@/lib/admin/api";
+import { requireFreshRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
 import { isRole, type Role } from "@/lib/admin/roles";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 const USER_COLUMNS = "id, name, email, role, is_active, last_login_at, created_at, updated_at";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,9 +27,12 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
   const auth = await requireFreshRole(["owner"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
   const { id } = await params;
 
   const { data: existing, error: fetchError } = await supabase
@@ -38,7 +42,8 @@ export async function PATCH(
     .maybeSingle<ExistingUserRow>();
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    console.error("[users] Load failed:", fetchError.message);
+    return NextResponse.json({ error: "Could not load user." }, { status: 500 });
   }
   if (!existing) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
@@ -54,22 +59,26 @@ export async function PATCH(
   }
 
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  let profileFieldChanged = false;
 
   if (typeof body.name === "string") {
     if (!body.name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
     update.name = body.name;
+    profileFieldChanged = true;
   }
   if (typeof body.email === "string") {
     if (!body.email || !EMAIL_RE.test(body.email)) {
       return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
     }
     update.email = body.email.toLowerCase();
+    profileFieldChanged = true;
   }
   if (body.role !== undefined) {
     if (!isRole(body.role)) {
       return NextResponse.json({ error: "Invalid role." }, { status: 400 });
     }
     update.role = body.role;
+    profileFieldChanged = true;
   }
   if (typeof body.is_active === "boolean") {
     update.is_active = body.is_active;
@@ -102,16 +111,48 @@ export async function PATCH(
     if (error.code === "23505") {
       return NextResponse.json({ error: "A user with this email already exists." }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[users] Update failed:", error.message);
+    return NextResponse.json({ error: "Could not update user." }, { status: 500 });
+  }
+
+  const ipAddress = getClientIp(request);
+  const userAgent = getUserAgent(request);
+
+  if (typeof update.is_active === "boolean" && update.is_active !== existing.is_active) {
+    await logAdminActivity({
+      adminUserId: session.userId,
+      action: update.is_active ? "user_activate" : "user_deactivate",
+      entityType: "admin_user",
+      entityId: id,
+      metadata: {},
+      ipAddress,
+      userAgent,
+    });
+  }
+  if (profileFieldChanged) {
+    await logAdminActivity({
+      adminUserId: session.userId,
+      action: "user_update",
+      entityType: "admin_user",
+      entityId: id,
+      metadata: {
+        ...(typeof update.role === "string" ? { role: update.role } : {}),
+      },
+      ipAddress,
+      userAgent,
+    });
   }
 
   return NextResponse.json(data);
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
   const auth = await requireFreshRole(["owner"]);
   if (!auth.ok) return auth.response;
   const { supabase, session } = auth;
@@ -128,7 +169,8 @@ export async function DELETE(
     .maybeSingle<ExistingUserRow>();
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    console.error("[users] Load failed:", fetchError.message);
+    return NextResponse.json({ error: "Could not load user." }, { status: 500 });
   }
   if (!existing) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
@@ -147,8 +189,19 @@ export async function DELETE(
   const { error } = await supabase.from("admin_users").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[users] Delete failed:", error.message);
+    return NextResponse.json({ error: "Could not delete user." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "user_delete",
+    entityType: "admin_user",
+    entityId: id,
+    metadata: {},
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 // Generic editor for every multi-page-site route except the homepage (which
 // keeps its own dedicated homepage_content table/route). One row per
 // (page_slug, section_key) in content_sections — GET returns every section
 // saved for a page, PATCH upserts exactly one section's row, so saving one
-// section can never touch another.
+// section can never touch another. This is also what powers
+// /admin/pages/book-consultation (page_slug="book-consultation").
 
 export async function GET(request: Request) {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
 
@@ -24,7 +26,8 @@ export async function GET(request: Request) {
     .eq("page_slug", slug);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[content-sections] List failed:", error.message);
+    return NextResponse.json({ error: "Could not load page content." }, { status: 500 });
   }
 
   const sections: Record<
@@ -44,9 +47,12 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let body: { pageSlug?: unknown; sectionKey?: unknown; content?: unknown; isVisible?: unknown };
   try {
@@ -84,8 +90,19 @@ export async function PATCH(request: Request) {
     .upsert(row, { onConflict: "page_slug,section_key" });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[content-sections] Save failed:", error.message);
+    return NextResponse.json({ error: "Could not save changes." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "content_sections",
+    entityId: `${pageSlug}:${sectionKey}`,
+    metadata: { op: "update", pageSlug, sectionKey },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }

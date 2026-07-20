@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
   const { id } = await params;
 
   let body: Record<string, unknown>;
@@ -39,26 +43,51 @@ export async function PUT(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[case-studies] Update failed:", error.message);
+    return NextResponse.json({ error: "Could not update case study." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "case_studies",
+    entityId: id,
+    metadata: { op: "update" },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json(data);
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
   const { id } = await params;
 
   const { error } = await supabase.from("case_studies").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[case-studies] Delete failed:", error.message);
+    return NextResponse.json({ error: "Could not delete case study." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "case_studies",
+    entityId: id,
+    metadata: { op: "delete" },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }

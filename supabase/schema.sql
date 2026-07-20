@@ -430,3 +430,30 @@ create index if not exists consultation_leads_archived_idx on consultation_leads
 insert into storage.buckets (id, name, public)
 values ('site-media', 'site-media', true)
 on conflict (id) do nothing;
+
+-- ── admin_activity_logs ──────────────────────────────────────────────────────
+-- Medium-detail audit trail for important admin actions (login, user
+-- management, media, CMS saves, lead updates). Never stores passwords,
+-- password hashes, API keys, or full sensitive lead payloads — see
+-- lib/admin/activity.ts, which builds `metadata` from an explicit allow-list
+-- per action rather than dumping raw request bodies.
+-- admin_user_id is nullable (not a foreign key) because the .env emergency
+-- fallback account and failed logins with an unrecognized email have no
+-- admin_users row — the row still gets logged with the email in metadata.
+create table if not exists admin_activity_logs (
+  id            uuid primary key default gen_random_uuid(),
+  admin_user_id uuid references admin_users(id) on delete set null,
+  action        text not null,
+  entity_type   text,
+  entity_id     text,
+  metadata      jsonb not null default '{}'::jsonb,
+  ip_address    text,
+  user_agent    text,
+  created_at    timestamptz not null default now()
+);
+alter table admin_activity_logs enable row level security;
+-- No policies: only service_role (which bypasses RLS) can read/write this table.
+
+create index if not exists admin_activity_logs_admin_user_id_idx on admin_activity_logs (admin_user_id);
+create index if not exists admin_activity_logs_action_idx on admin_activity_logs (action);
+create index if not exists admin_activity_logs_created_at_idx on admin_activity_logs (created_at desc);

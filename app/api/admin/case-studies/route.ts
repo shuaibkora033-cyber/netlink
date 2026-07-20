@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 export async function GET() {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
 
@@ -13,16 +14,20 @@ export async function GET() {
     .order("order_index", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[case-studies] List failed:", error.message);
+    return NextResponse.json({ error: "Could not load case studies." }, { status: 500 });
   }
 
   return NextResponse.json(data ?? []);
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let body: Record<string, unknown>;
   try {
@@ -54,8 +59,19 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[case-studies] Create failed:", error.message);
+    return NextResponse.json({ error: "Could not create case study." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "case_studies",
+    entityId: data.id,
+    metadata: { op: "create" },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json(data);
 }

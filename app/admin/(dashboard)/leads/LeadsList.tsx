@@ -159,7 +159,15 @@ export function LeadsList() {
         </div>
         <button
           type="button"
-          onClick={() => downloadLeadsCsv(leads)}
+          onClick={() => {
+            downloadLeadsCsv(leads);
+            // Fire-and-forget — an export log failure should never block the download.
+            fetch("/api/admin/leads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ count: leads.length }),
+            }).catch(() => {});
+          }}
           disabled={loadState !== "ready" || leads.length === 0}
           className="inline-flex items-center gap-2 rounded-full border border-line bg-white/[0.03] px-4 py-2 text-xs font-medium text-fg transition-colors hover:border-neon/30 hover:text-neon disabled:cursor-not-allowed disabled:opacity-50"
         >

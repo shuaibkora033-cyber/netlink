@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 export async function GET() {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
 
@@ -14,7 +15,8 @@ export async function GET() {
     .maybeSingle();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Homepage content not found." }, { status: 500 });
+    if (error) console.error("[homepage] Load failed:", error.message);
+    return NextResponse.json({ error: "Could not load homepage content." }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -74,9 +76,12 @@ function validateSection(section: string, d: Record<string, unknown>): string | 
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let body: { section?: unknown; data?: unknown };
   try {
@@ -109,8 +114,19 @@ export async function PATCH(request: Request) {
     .eq("id", 1);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[homepage] Update failed:", error.message);
+    return NextResponse.json({ error: "Could not save changes." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "homepage_content",
+    entityId: section,
+    metadata: { op: "update", section },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }

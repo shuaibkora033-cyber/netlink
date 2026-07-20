@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import {
   LEAD_STATUSES,
   LEAD_QUALITIES,
@@ -7,6 +7,7 @@ import {
   BUDGET_OPTIONS,
   INDUSTRY_OPTIONS,
 } from "@/lib/leads";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 const STATUS_VALUES = new Set<string>(LEAD_STATUSES.map((s) => s.value));
 const SERVICE_VALUES = new Set<string>(SERVICE_NEEDED_OPTIONS.map((o) => o.value));
@@ -14,7 +15,7 @@ const BUDGET_VALUES = new Set<string>(BUDGET_OPTIONS.map((o) => o.value));
 const INDUSTRY_VALUES = new Set<string>(INDUSTRY_OPTIONS.map((o) => o.value));
 
 export async function GET(request: Request) {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "sales", "viewer"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
 
@@ -72,8 +73,42 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[leads] List failed:", error.message);
+    return NextResponse.json({ error: "Could not load leads." }, { status: 500 });
   }
 
   return NextResponse.json(data ?? []);
+}
+
+// Fired by the "Export CSV" button in the admin leads UI — the CSV itself is
+// built client-side from already-fetched rows (no server round trip for the
+// file), so this just records that an export happened.
+export async function POST(request: Request) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "sales", "viewer"]);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
+  let count: number | undefined;
+  try {
+    const raw = await request.json();
+    if (raw && typeof raw === "object" && typeof (raw as { count?: unknown }).count === "number") {
+      count = (raw as { count: number }).count;
+    }
+  } catch {
+    // Body is optional — a missing/invalid one just means we log without a count.
+  }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "leads_export",
+    entityType: "consultation_leads",
+    metadata: count === undefined ? {} : { count },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
+
+  return NextResponse.json({ ok: true });
 }

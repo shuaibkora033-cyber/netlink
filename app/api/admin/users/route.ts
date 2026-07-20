@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireFreshRole } from "@/lib/admin/api";
+import { requireFreshRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
 import { hashPassword, validatePassword } from "@/lib/admin/password";
 import { isRole } from "@/lib/admin/roles";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 const USER_COLUMNS = "id, name, email, role, is_active, last_login_at, created_at, updated_at";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -18,16 +19,20 @@ export async function GET() {
     .order("created_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[users] List failed:", error.message);
+    return NextResponse.json({ error: "Could not load users." }, { status: 500 });
   }
 
   return NextResponse.json(data ?? []);
 }
 
 export async function POST(request: Request) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
   const auth = await requireFreshRole(["owner"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let body: Record<string, unknown>;
   try {
@@ -81,8 +86,19 @@ export async function POST(request: Request) {
     if (error.code === "23505") {
       return NextResponse.json({ error: "A user with this email already exists." }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[users] Create failed:", error.message);
+    return NextResponse.json({ error: "Could not create user." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "user_create",
+    entityType: "admin_user",
+    entityId: data.id,
+    metadata: { email: data.email, role: data.role },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json(data);
 }

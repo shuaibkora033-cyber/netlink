@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
 import { LEAD_STATUSES } from "@/lib/leads";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 const STATUS_VALUES = new Set<string>(LEAD_STATUSES.map((s) => s.value));
 
@@ -9,7 +10,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "sales", "viewer"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
   const { id } = await params;
@@ -21,7 +22,8 @@ export async function GET(
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[leads] Load failed:", error.message);
+    return NextResponse.json({ error: "Could not load lead." }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ error: "Lead not found." }, { status: 404 });
@@ -33,13 +35,17 @@ export async function GET(
 // Only status and admin_notes are updatable — every other field is the
 // visitor's original submission and stays as-is, same as every other PATCH
 // route in this codebase (explicit column allow-list, never a full overwrite).
+// Viewer is read-only (GET above allows it, PATCH does not).
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "sales"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
   const { id } = await params;
 
   let body: Record<string, unknown>;
@@ -87,7 +93,47 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[leads] Update failed:", error.message);
+    return NextResponse.json({ error: "Could not update lead." }, { status: 500 });
+  }
+
+  const ipAddress = getClientIp(request);
+  const userAgent = getUserAgent(request);
+
+  // Logged per changed field, not as one big dump of the lead row — and
+  // never the note text itself, only that notes changed.
+  if ("status" in update) {
+    await logAdminActivity({
+      adminUserId: session.userId,
+      action: "lead_status_update",
+      entityType: "consultation_lead",
+      entityId: id,
+      metadata: { status: update.status },
+      ipAddress,
+      userAgent,
+    });
+  }
+  if ("admin_notes" in update) {
+    await logAdminActivity({
+      adminUserId: session.userId,
+      action: "lead_notes_update",
+      entityType: "consultation_lead",
+      entityId: id,
+      metadata: {},
+      ipAddress,
+      userAgent,
+    });
+  }
+  if ("follow_up_date" in update) {
+    await logAdminActivity({
+      adminUserId: session.userId,
+      action: "lead_follow_up_update",
+      entityType: "consultation_lead",
+      entityId: id,
+      metadata: { followUpDate: update.follow_up_date },
+      ipAddress,
+      userAgent,
+    });
   }
 
   return NextResponse.json(data);

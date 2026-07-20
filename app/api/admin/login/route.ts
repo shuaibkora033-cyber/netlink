@@ -8,6 +8,25 @@ import {
 import { verifyPassword } from "@/lib/admin/password";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { isRole } from "@/lib/admin/roles";
+import { assertSameOrigin } from "@/lib/admin/api";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
+
+// ── Basic in-memory rate limiting ────────────────────────────────────────────
+// Same pattern as app/api/consultation-leads/route.ts: this VPS runs a
+// single long-lived `next start` process, so an in-memory map persists
+// across requests within that process. Resets on deploy/restart — an
+// accepted tradeoff for this phase.
+const RATE_LIMIT_WINDOW_MS = 5 * 60_000;
+const RATE_LIMIT_MAX = 5;
+const attemptsByIp = new Map<string, number[]>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const recent = (attemptsByIp.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  recent.push(now);
+  attemptsByIp.set(ip, recent);
+  return recent.length > RATE_LIMIT_MAX;
+}
 
 // Compares via fixed-length SHA-256 digests so the check is both
 // constant-time and safe for inputs of different lengths (timingSafeEqual
@@ -37,7 +56,22 @@ function setSessionCookie(response: NextResponse, token: string) {
   });
 }
 
+const GENERIC_LOGIN_ERROR = "Invalid email or password.";
+
 export async function POST(request: Request) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const ip = getClientIp(request);
+  const userAgent = getUserAgent(request);
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Please try again in a few minutes." },
+      { status: 429 }
+    );
+  }
+
   let body: { email?: unknown; password?: unknown };
   try {
     body = await request.json();
@@ -48,6 +82,30 @@ export async function POST(request: Request) {
   const { email, password } = body;
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+  }
+
+  async function logFailure(adminUserId: string | null) {
+    await logAdminActivity({
+      adminUserId,
+      action: "login_failed",
+      entityType: "admin_user",
+      entityId: adminUserId,
+      metadata: { email },
+      ipAddress: ip,
+      userAgent,
+    });
+  }
+
+  async function logSuccess(adminUserId: string | null) {
+    await logAdminActivity({
+      adminUserId,
+      action: "login_success",
+      entityType: "admin_user",
+      entityId: adminUserId,
+      metadata: { email },
+      ipAddress: ip,
+      userAgent,
+    });
   }
 
   // 1. Try a per-user admin_users account first — it takes precedence over
@@ -61,13 +119,18 @@ export async function POST(request: Request) {
       .maybeSingle<AdminUserRow>();
 
     if (user) {
+      // Deliberately the same generic message as "wrong password" — a
+      // distinct "this account is deactivated" message would confirm to an
+      // outside prober that the email exists in the system.
       if (!user.is_active) {
-        return NextResponse.json({ error: "This account has been deactivated." }, { status: 401 });
+        await logFailure(user.id);
+        return NextResponse.json({ error: GENERIC_LOGIN_ERROR }, { status: 401 });
       }
 
       const passwordMatches = await verifyPassword(password, user.password_hash);
       if (!passwordMatches) {
-        return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+        await logFailure(user.id);
+        return NextResponse.json({ error: GENERIC_LOGIN_ERROR }, { status: 401 });
       }
 
       const role = isRole(user.role) ? user.role : "viewer";
@@ -84,6 +147,8 @@ export async function POST(request: Request) {
         .update({ last_login_at: new Date().toISOString() })
         .eq("id", user.id);
 
+      await logSuccess(user.id);
+
       const response = NextResponse.json({ ok: true });
       setSessionCookie(response, token);
       return response;
@@ -98,14 +163,16 @@ export async function POST(request: Request) {
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminEmail || !adminPassword) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    await logFailure(null);
+    return NextResponse.json({ error: GENERIC_LOGIN_ERROR }, { status: 401 });
   }
 
   const emailMatches = safeCompare(email, adminEmail);
   const passwordMatches = safeCompare(password, adminPassword);
 
   if (!emailMatches || !passwordMatches) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    await logFailure(null);
+    return NextResponse.json({ error: GENERIC_LOGIN_ERROR }, { status: 401 });
   }
 
   const token = await createAdminSessionToken({
@@ -114,6 +181,8 @@ export async function POST(request: Request) {
     name: "Admin",
     role: "owner",
   });
+  await logSuccess(null);
+
   const response = NextResponse.json({ ok: true });
   setSessionCookie(response, token);
   return response;

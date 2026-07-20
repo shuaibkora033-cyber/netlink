@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import {
   STORAGE_BUCKET,
   DEFAULT_STORAGE_FOLDER,
@@ -10,6 +10,7 @@ import {
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
 } from "@/lib/media";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -38,9 +39,12 @@ function buildStoragePath(folder: string, originalName: string, mimeType: string
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let form: FormData;
   try {
@@ -89,10 +93,28 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[media/upload] Upload failed:", error.message);
+    // A missing bucket is the one case worth telling the admin apart from a
+    // generic failure — everything else stays generic to avoid leaking
+    // storage/internal details.
+    const bucketMissing = /bucket.*not.*found/i.test(error.message);
+    return NextResponse.json(
+      { error: bucketMissing ? "Media storage is not set up yet. Contact the site owner." : "Upload failed. Please try again." },
+      { status: 500 }
+    );
   }
 
   const { data: publicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "media_upload",
+    entityType: "media",
+    entityId: path,
+    metadata: { path, folder, mimeType, size: file.size },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({
     url: publicUrlData.publicUrl,

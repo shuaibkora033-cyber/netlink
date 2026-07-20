@@ -88,3 +88,35 @@ export async function requireFreshRole(allowedRoles: Role[]): Promise<AuthResult
 
   return auth;
 }
+
+/**
+ * Lightweight CSRF defense for admin mutation routes (POST/PATCH/PUT/
+ * DELETE): rejects the request when its Origin doesn't match the site's own
+ * Host. sameSite=lax on the session cookie already blocks the classic
+ * cross-site form/fetch attack in modern browsers — this is an explicit,
+ * independent second layer. Requests with no Origin header (e.g. some
+ * same-origin navigations, non-browser tooling) are allowed through; the
+ * session cookie check remains the real authorization boundary. Always
+ * returns a JSON response, never a redirect, so API auth failures never
+ * surface as an HTML redirect to a caller expecting JSON.
+ */
+export function assertSameOrigin(request: Request): NextResponse | null {
+  const origin = request.headers.get("origin");
+  if (!origin) return null;
+
+  const host = request.headers.get("host");
+  if (!host) return null;
+
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
+  if (originHost !== host) {
+    return NextResponse.json({ error: "Cross-site requests are not allowed." }, { status: 403 });
+  }
+
+  return null;
+}

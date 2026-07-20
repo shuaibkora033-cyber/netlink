@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { DEFAULT_HOMEPAGE_CONTENT, DEFAULT_CASE_STUDIES } from "@/lib/data/homepage";
 import { DEFAULT_INDUSTRY_CARDS } from "@/lib/data/industryCards";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 /**
  * Explicit, admin-triggered reset — never run automatically. Overwrites the
@@ -9,11 +10,17 @@ import { DEFAULT_INDUSTRY_CARDS } from "@/lib/data/industryCards";
  * industry_cards rows with the current code defaults (lib/content.ts). Used
  * to push a positioning change (like agency → lead-gen) into Supabase
  * without hand-retyping every field through the section forms.
+ *
+ * Scoped to owner/admin only (not editor) — unlike routine section saves,
+ * this bulk-deletes and replaces every case study and industry card row.
  */
-export async function POST() {
-  const auth = await requireAdminSupabase();
+export async function POST(request: Request) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   const d = DEFAULT_HOMEPAGE_CONTENT;
 
@@ -36,7 +43,8 @@ export async function POST() {
     .eq("id", 1);
 
   if (homepageError) {
-    return NextResponse.json({ error: homepageError.message }, { status: 500 });
+    console.error("[homepage/reset] Homepage update failed:", homepageError.message);
+    return NextResponse.json({ error: "Reset failed. Please try again." }, { status: 500 });
   }
 
   const { error: deleteError } = await supabase
@@ -45,7 +53,8 @@ export async function POST() {
     .not("id", "is", null);
 
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    console.error("[homepage/reset] Case studies delete failed:", deleteError.message);
+    return NextResponse.json({ error: "Reset failed. Please try again." }, { status: 500 });
   }
 
   const { error: insertError } = await supabase.from("case_studies").insert(
@@ -60,7 +69,8 @@ export async function POST() {
   );
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    console.error("[homepage/reset] Case studies insert failed:", insertError.message);
+    return NextResponse.json({ error: "Reset failed. Please try again." }, { status: 500 });
   }
 
   const { error: deleteIndustriesError } = await supabase
@@ -69,7 +79,8 @@ export async function POST() {
     .not("id", "is", null);
 
   if (deleteIndustriesError) {
-    return NextResponse.json({ error: deleteIndustriesError.message }, { status: 500 });
+    console.error("[homepage/reset] Industry cards delete failed:", deleteIndustriesError.message);
+    return NextResponse.json({ error: "Reset failed. Please try again." }, { status: 500 });
   }
 
   const { error: insertIndustriesError } = await supabase.from("industry_cards").insert(
@@ -86,8 +97,19 @@ export async function POST() {
   );
 
   if (insertIndustriesError) {
-    return NextResponse.json({ error: insertIndustriesError.message }, { status: 500 });
+    console.error("[homepage/reset] Industry cards insert failed:", insertIndustriesError.message);
+    return NextResponse.json({ error: "Reset failed. Please try again." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "homepage_content",
+    entityId: "reset",
+    metadata: { op: "reset_to_defaults" },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }

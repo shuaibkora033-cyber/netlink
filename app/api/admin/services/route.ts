@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
+import { isNonEmptyString, isValidUrlOrPath } from "@/lib/validate";
 
 export async function GET() {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
 
@@ -13,16 +15,20 @@ export async function GET() {
     .order("order_index", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[services] List failed:", error.message);
+    return NextResponse.json({ error: "Could not load services." }, { status: 500 });
   }
 
   return NextResponse.json(data ?? []);
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let body: Record<string, unknown>;
   try {
@@ -33,8 +39,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  if (typeof body.title !== "string" || !body.title) {
-    return NextResponse.json({ error: "Title is required." }, { status: 400 });
+  if (!isNonEmptyString(body.title, 200)) {
+    return NextResponse.json({ error: "Title is required (max 200 characters)." }, { status: 400 });
+  }
+  if (typeof body.link_href === "string" && body.link_href && !isValidUrlOrPath(body.link_href)) {
+    return NextResponse.json({ error: "Link must be a valid URL or path." }, { status: 400 });
   }
 
   const { data, error } = await supabase
@@ -51,8 +60,19 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[services] Create failed:", error.message);
+    return NextResponse.json({ error: "Could not create service." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "services",
+    entityId: data.id,
+    metadata: { op: "create" },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json(data);
 }

@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { requireFreshRole } from "@/lib/admin/api";
+import { requireFreshRole, assertSameOrigin } from "@/lib/admin/api";
 import { hashPassword, validatePassword } from "@/lib/admin/password";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
   const auth = await requireFreshRole(["owner"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
   const { id } = await params;
 
   let body: { password?: unknown };
@@ -31,7 +35,8 @@ export async function POST(
     .maybeSingle();
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    console.error("[users/password] Load failed:", fetchError.message);
+    return NextResponse.json({ error: "Could not load user." }, { status: 500 });
   }
   if (!existing) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
@@ -45,8 +50,19 @@ export async function POST(
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[users/password] Update failed:", error.message);
+    return NextResponse.json({ error: "Could not change password." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "user_password_change",
+    entityType: "admin_user",
+    entityId: id,
+    metadata: {},
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }

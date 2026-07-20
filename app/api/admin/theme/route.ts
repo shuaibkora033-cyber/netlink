@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAdminSupabase } from "@/lib/admin/api";
+import { requireRole, assertSameOrigin } from "@/lib/admin/api";
 import { deepNormalize } from "@/lib/normalize";
+import { logAdminActivity, getClientIp, getUserAgent } from "@/lib/admin/activity";
 
 export async function GET() {
-  const auth = await requireAdminSupabase();
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
   const { supabase } = auth;
 
@@ -14,7 +15,8 @@ export async function GET() {
     .maybeSingle();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Theme settings not found." }, { status: 500 });
+    if (error) console.error("[theme] Load failed:", error.message);
+    return NextResponse.json({ error: "Could not load theme settings." }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -32,9 +34,12 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const auth = await requireAdminSupabase();
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireRole(["owner", "admin", "editor"]);
   if (!auth.ok) return auth.response;
-  const { supabase } = auth;
+  const { supabase, session } = auth;
 
   let body: Record<string, unknown>;
   try {
@@ -67,8 +72,19 @@ export async function PUT(request: Request) {
     .eq("id", 1);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[theme] Update failed:", error.message);
+    return NextResponse.json({ error: "Could not save changes." }, { status: 500 });
   }
+
+  await logAdminActivity({
+    adminUserId: session.userId,
+    action: "cms_update",
+    entityType: "theme_settings",
+    entityId: "1",
+    metadata: { op: "update" },
+    ipAddress: getClientIp(request),
+    userAgent: getUserAgent(request),
+  });
 
   return NextResponse.json({ ok: true });
 }
