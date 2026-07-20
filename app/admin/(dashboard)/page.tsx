@@ -1,4 +1,9 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin/session";
+import { getAdminSupabase } from "@/lib/supabase/server";
+import { hasPermission, type Role } from "@/lib/admin/roles";
+import { getDashboardStats, type DashboardStats } from "@/lib/admin/dashboardStats";
 
 const LINKS = [
   { href: "/admin/leads", title: "Leads", description: "Consultation requests submitted through /book-consultation." },
@@ -17,15 +22,94 @@ const LINKS = [
   { href: "/admin/theme", title: "Theme & settings", description: "Colors, button labels, section visibility, and contact details." },
 ];
 
-export default function AdminOverviewPage() {
+const KPI_COPY: { key: keyof DashboardStats; label: string; hint: string }[] = [
+  { key: "newThisWeek", label: "New this week", hint: "Since Monday" },
+  { key: "hotLeads", label: "Hot leads", hint: "Score 61+" },
+  { key: "awaitingReply", label: "Awaiting reply", hint: "Contacted, no follow-up set" },
+  { key: "bookedThisMonth", label: "Booked this month", hint: "Submitted & booked this month" },
+];
+
+function KpiCard({ label, value, hint }: { label: string; value: number; hint: string }) {
+  return (
+    <div className="rounded-2xl border border-admin-border bg-admin-surface p-5">
+      <p className="text-admin-label font-semibold uppercase tracking-wide text-admin-text-3">{label}</p>
+      <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-admin-text">{value}</p>
+      <p className="mt-1 text-admin-caption text-admin-text-3">{hint}</p>
+    </div>
+  );
+}
+
+function KpiSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-hidden="true">
+      {KPI_COPY.map((c) => (
+        <div key={c.key} className="animate-pulse rounded-2xl border border-admin-border bg-admin-surface p-5">
+          <div className="h-3 w-20 rounded bg-admin-surface-3" />
+          <div className="mt-3 h-8 w-12 rounded bg-admin-surface-3" />
+          <div className="mt-2 h-3 w-24 rounded bg-admin-surface-3" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KpiError() {
+  return (
+    <p
+      role="alert"
+      className="rounded-2xl border border-admin-danger/30 bg-admin-danger/10 px-4 py-3 text-admin-body text-admin-danger"
+    >
+      Couldn&apos;t load lead metrics. Try refreshing the page.
+    </p>
+  );
+}
+
+async function KpiSection() {
+  const supabase = getAdminSupabase();
+  if (!supabase) return <KpiError />;
+
+  let stats: DashboardStats;
+  try {
+    stats = await getDashboardStats(supabase);
+  } catch (e) {
+    console.error("[admin overview] Failed to load dashboard stats:", e);
+    return <KpiError />;
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" role="group" aria-label="Lead metrics">
+      {KPI_COPY.map((c) => (
+        <KpiCard key={c.key} label={c.label} value={stats[c.key]} hint={c.hint} />
+      ))}
+    </div>
+  );
+}
+
+export default async function AdminOverviewPage() {
+  // layout.tsx already guarantees a valid session reaches here; re-checking
+  // is the same defense-in-depth pattern every admin page/route follows.
+  const session = await requireAdminSession();
+  const role: Role = session?.role ?? "viewer";
+
+  // Mirrors the /admin/leads route restriction (owner/admin/sales/viewer) via
+  // the same existing permission — an editor can't open Leads, so lead
+  // metrics have no place on their overview either.
+  const canViewLeadMetrics = hasPermission(role, "view_leads");
+
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-fg">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-admin-h1 font-semibold text-admin-text">Welcome back</h1>
+        <p className="mt-1 text-admin-body text-admin-text-2">
           Edit your site&apos;s content and theme below — changes go live as soon as you save.
         </p>
       </div>
+
+      {canViewLeadMetrics && (
+        <Suspense fallback={<KpiSkeleton />}>
+          <KpiSection />
+        </Suspense>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {LINKS.map((link) => (
