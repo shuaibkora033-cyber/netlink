@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PasswordInput } from "@/components/admin/ui";
 
 const inputCls =
   "w-full rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-sm text-fg outline-none transition-all duration-200 focus:border-neon/50 focus:bg-white/[0.05] focus:ring-1 focus:ring-neon/20";
@@ -70,14 +71,13 @@ export function LoginForm() {
           <label htmlFor="password" className="text-xs font-medium text-muted">
             Password
           </label>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             required
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
+            onChange={setPassword}
+            className="py-3"
           />
         </div>
 

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ROLES, type Role } from "@/lib/admin/roles";
 import {
   TextField,
+  PasswordInput,
   ToggleField,
   SaveButton,
   StatusMessage,
@@ -211,8 +212,8 @@ function CreateUserPanel({ onCreated }: { onCreated: (user: UserRow) => void }) 
         <TextField label="Name" value={name} onChange={setName} placeholder="Jane Doe" />
         <TextField label="Email" value={email} onChange={setEmail} placeholder="jane@netlink.com" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="Min. 8 characters" />
-          <TextField label="Confirm password" type="password" value={confirmPassword} onChange={setConfirmPassword} />
+          <PasswordInput label="Password" value={password} onChange={setPassword} placeholder="Min. 8 characters" />
+          <PasswordInput label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} />
         </div>
         <RoleSelect value={role} onChange={setRole} />
         <ToggleField label="Active" checked={isActive} onChange={setIsActive} />
@@ -320,8 +321,8 @@ function ChangePasswordModal({ user, onClose }: { user: UserRow; onClose: () => 
   return (
     <Modal title={`Change password — ${user.name}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <TextField label="New password" type="password" value={password} onChange={setPassword} placeholder="Min. 8 characters" />
-        <TextField label="Confirm password" type="password" value={confirmPassword} onChange={setConfirmPassword} />
+        <PasswordInput label="New password" value={password} onChange={setPassword} placeholder="Min. 8 characters" />
+        <PasswordInput label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} />
         <StatusMessage state={state} error={error} />
         <div className="flex justify-end gap-2">
           <IconButton label="Cancel" onClick={onClose} />

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 const inputCls =
   "w-full rounded-xl border border-line bg-white/[0.03] px-4 py-2.5 text-sm text-fg placeholder:text-muted/60 outline-none transition-all duration-200 focus:border-neon/50 focus:bg-white/[0.05] focus:ring-1 focus:ring-neon/20";
@@ -38,27 +38,120 @@ export function TextField({
   onChange,
   placeholder,
   maxLength,
-  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   maxLength?: number;
-  type?: "text" | "email" | "password";
 }) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-muted">{label}</span>
       <input
-        type={type}
+        type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
-        autoComplete={type === "password" ? "new-password" : undefined}
         className={inputCls}
       />
+    </label>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      <path
+        d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      <path
+        d="M3 3l18 18M10.6 5.2A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.7 17.7 0 0 1-3.2 4.2M6.5 6.6C3.8 8.3 2 12 2 12s3.6 7 10 7c1.4 0 2.6-.3 3.7-.8M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Password field with a show/hide toggle inside the input. Hidden
+ * (type="password") by default; the toggle only flips how the value is
+ * displayed — it never changes, stores, or logs the value itself.
+ */
+export function PasswordInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  name,
+  id,
+  required,
+  autoComplete = "new-password",
+  disabled,
+  className = "",
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  name?: string;
+  id?: string;
+  required?: boolean;
+  autoComplete?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  const field = (
+    <div className="relative">
+      <input
+        type={visible ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        name={name}
+        id={id}
+        required={required}
+        autoComplete={autoComplete}
+        disabled={disabled}
+        className={`${inputCls} pr-11 ${className}`}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        disabled={disabled}
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {visible ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+    </div>
+  );
+
+  if (!label) return field;
+
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted">{label}</span>
+      {field}
     </label>
   );
 }
