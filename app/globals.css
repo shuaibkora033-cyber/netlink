@@ -28,6 +28,65 @@
   --animate-pulse-slow: pulse-slow 3s ease-in-out infinite;
 }
 
+/* ── Admin dashboard tokens ─────────────────────────────────────────────────────
+   Additive only — every marketing token above (--color-ink, --color-charcoal,
+   --color-neon, etc.) is untouched and still drives the public site. These
+   tokens exist so app/admin/** and components/admin/** have their own,
+   independently-tunable vocabulary instead of reaching for marketing tokens
+   or one-off arbitrary values (bg-white/[0.03], text-[0.65rem], etc.).
+
+   Surfaces alias the existing marketing darks 1:1 today (no visual jump);
+   the elevation ladder (surface → surface-2 → surface-3) is what later
+   phases build on for depth, without ever touching the values above. */
+@theme {
+  /* Surfaces (elevation ladder: bg < surface < surface-2 < surface-3) */
+  --color-admin-bg:        var(--color-ink);
+  --color-admin-surface:   #101317;
+  --color-admin-surface-2: #161a20;
+  --color-admin-surface-3: #1d222a;
+
+  /* Borders */
+  --color-admin-border:        rgba(255, 255, 255, 0.08);
+  --color-admin-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Text — three tiers instead of ad hoc text-muted/50, text-muted/60, etc. */
+  --color-admin-text:   var(--color-fg);
+  --color-admin-text-2: var(--color-muted);
+  --color-admin-text-3: rgba(154, 163, 173, 0.65);
+
+  /* Brand accent — alias, not a new color; stays the exact marketing teal */
+  --color-admin-accent: var(--color-neon);
+
+  /* Semantic (separate from the brand accent; new, admin-only) */
+  --color-admin-success: #34d399;
+  --color-admin-warning: #fbbf24;
+  --color-admin-danger:  #f87171;
+  --color-admin-info:    #60a5fa;
+
+  /* Type scale — replaces the arbitrary 0.6rem/0.65rem/0.7rem/xs/sm/base mix.
+     Ratio ~1.2-1.25, rounded to whole pixels. */
+  --text-admin-caption: 0.6875rem;   /* 11px — micro labels, meta */
+  --text-admin-caption--line-height: 1rem;
+  --text-admin-label: 0.75rem;       /* 12px — form field labels, small controls */
+  --text-admin-label--line-height: 1rem;
+  --text-admin-body: 0.8125rem;      /* 13px — default admin body text */
+  --text-admin-body--line-height: 1.35rem;
+  --text-admin-subhead: 0.9375rem;   /* 15px — panel/section titles */
+  --text-admin-subhead--line-height: 1.25rem;
+  --text-admin-h3: 1.0625rem;        /* 17px */
+  --text-admin-h3--line-height: 1.5rem;
+  --text-admin-h2: 1.25rem;          /* 20px */
+  --text-admin-h2--line-height: 1.75rem;
+  --text-admin-h1: 1.5rem;           /* 24px — page titles */
+  --text-admin-h1--line-height: 1.875rem;
+
+  /* Interaction — a single easing curve for admin UI. Pair with Tailwind's
+     built-in numeric duration utilities: duration-150 (press/toggle),
+     duration-200 (hover/focus). There is no Tailwind v4 --duration-*
+     theme namespace, so durations stay as plain numeric utilities. */
+  --ease-admin: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* ── Keyframes ──────────────────────────────────────────────────────────────── */
 
 @keyframes marquee {

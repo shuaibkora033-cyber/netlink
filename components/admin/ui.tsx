@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 
 const inputCls =
-  "w-full rounded-xl border border-line bg-white/[0.03] px-4 py-2.5 text-sm text-fg placeholder:text-muted/60 outline-none transition-all duration-200 focus:border-neon/50 focus:bg-white/[0.05] focus:ring-1 focus:ring-neon/20";
+  "w-full rounded-xl border border-admin-border bg-admin-surface px-4 py-2.5 text-admin-body text-admin-text placeholder:text-admin-text-3 outline-none transition-colors duration-200 ease-admin focus:border-admin-accent/50 focus:bg-admin-surface-2 focus:ring-1 focus:ring-admin-accent/20";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -19,11 +19,11 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-line glass p-5 sm:p-7">
+    <section className="rounded-2xl border border-admin-border glass p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-fg">{title}</h2>
-          {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+          <h2 className="text-admin-subhead font-semibold text-admin-text">{title}</h2>
+          {description && <p className="mt-1 text-admin-body text-admin-text-2">{description}</p>}
         </div>
         {headerAction && <div className="shrink-0">{headerAction}</div>}
       </div>
@@ -47,7 +47,7 @@ export function TextField({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className="text-admin-label font-medium text-admin-text-2">{label}</span>
       <input
         type="text"
         value={value}
@@ -139,7 +139,7 @@ export function PasswordInput({
         disabled={disabled}
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-xl text-admin-text-3 transition-colors duration-200 ease-admin hover:text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {visible ? <EyeOffIcon /> : <EyeIcon />}
       </button>
@@ -150,7 +150,7 @@ export function PasswordInput({
 
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className="text-admin-label font-medium text-admin-text-2">{label}</span>
       {field}
     </label>
   );
@@ -171,7 +171,7 @@ export function TextAreaField({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className="text-admin-label font-medium text-admin-text-2">{label}</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -183,6 +183,12 @@ export function TextAreaField({
   );
 }
 
+/**
+ * Accessible on/off switch. A single <button role="switch"> (not a <label>
+ * wrapping an onClick <span>) so it gets real keyboard support — Tab to
+ * focus, Space/Enter to toggle — and a visible focus ring, for free from
+ * the platform instead of hand-rolled key handlers.
+ */
 export function ToggleField({
   label,
   checked,
@@ -193,23 +199,29 @@ export function ToggleField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-white/[0.02] px-4 py-3">
-      <span className="text-sm text-fg/85">{label}</span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center justify-between gap-3 rounded-xl border border-admin-border bg-admin-surface px-4 py-3 text-left transition-colors duration-200 ease-admin hover:border-admin-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-bg"
+    >
+      <span className="text-admin-body text-admin-text/85">{label}</span>
       <span
-        onClick={() => onChange(!checked)}
+        aria-hidden="true"
         className={[
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
-          checked ? "bg-neon/70" : "bg-white/[0.12]",
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-admin",
+          checked ? "bg-admin-accent/70" : "bg-white/[0.12]",
         ].join(" ")}
       >
         <span
           className={[
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200",
+            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-admin",
             checked ? "translate-x-[22px]" : "translate-x-0.5",
           ].join(" ")}
         />
       </span>
-    </label>
+    </button>
   );
 }
 
@@ -229,7 +241,7 @@ export function SaveButton({
       type="button"
       onClick={onClick}
       disabled={state === "saving"}
-      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-neon to-neon-soft px-5 py-2 text-xs font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(13,253,209,0.55)] transition-shadow hover:shadow-[0_14px_50px_-8px_rgba(13,253,209,0.75)] disabled:cursor-not-allowed disabled:opacity-70 sm:px-6 sm:py-2.5 sm:text-sm"
+      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-neon to-neon-soft px-5 py-2 text-admin-label font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(13,253,209,0.55)] transition-shadow duration-200 ease-admin hover:shadow-[0_14px_50px_-8px_rgba(13,253,209,0.75)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-bg disabled:cursor-not-allowed disabled:opacity-70 sm:px-6 sm:py-2.5 sm:text-admin-body"
     >
       {text}
     </button>
@@ -239,7 +251,7 @@ export function SaveButton({
 export function UnsavedBadge({ show }: { show: boolean }) {
   if (!show) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[0.65rem] font-medium text-amber-300">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-admin-caption font-medium text-amber-300">
       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
       Unsaved changes
     </span>
@@ -249,14 +261,14 @@ export function UnsavedBadge({ show }: { show: boolean }) {
 export function StatusMessage({ state, error }: { state: SaveState; error?: string | null }) {
   if (state === "error") {
     return (
-      <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+      <p className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-label text-admin-danger">
         {error || "Something went wrong. Please try again."}
       </p>
     );
   }
   if (state === "saved") {
     return (
-      <p className="rounded-lg border border-neon/25 bg-neon/10 px-3 py-2 text-xs text-neon">
+      <p className="rounded-lg border border-admin-accent/25 bg-admin-accent/10 px-3 py-2 text-admin-label text-admin-accent">
         Changes saved.
       </p>
     );
@@ -278,10 +290,10 @@ export function IconButton({
       type="button"
       onClick={onClick}
       className={[
-        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+        "rounded-lg border px-3 py-1.5 text-admin-label font-medium transition-colors duration-200 ease-admin focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40",
         variant === "danger"
-          ? "border-red-500/25 text-red-400 hover:bg-red-500/10"
-          : "border-line text-muted hover:bg-white/[0.05] hover:text-fg",
+          ? "border-admin-danger/25 text-admin-danger hover:bg-admin-danger/10"
+          : "border-admin-border text-admin-text-2 hover:bg-admin-surface-2 hover:text-admin-text",
       ].join(" ")}
     >
       {label}

@@ -7,6 +7,7 @@ import { StatusBadge, QualityBadge, BadgeGroup } from "@/components/admin/leadBa
 import {
   Panel,
   TextAreaField,
+  ToggleField,
   SaveButton,
   StatusMessage,
   UnsavedBadge,
@@ -290,23 +291,11 @@ export function LeadDetail({ id }: { id: string }) {
           </label>
         </div>
 
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-white/[0.02] px-4 py-3">
-          <span className="text-sm text-fg/85">Archived</span>
-          <span
-            onClick={() => update({ archived: !fields.archived })}
-            className={[
-              "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
-              fields.archived ? "bg-neon/70" : "bg-white/[0.12]",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200",
-                fields.archived ? "translate-x-[22px]" : "translate-x-0.5",
-              ].join(" ")}
-            />
-          </span>
-        </label>
+        <ToggleField
+          label="Archived"
+          checked={fields.archived}
+          onChange={(v) => update({ archived: v })}
+        />
 
         <TextAreaField
           label="Admin notes"
