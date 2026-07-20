@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { canAccessPath, type Role } from "@/lib/admin/roles";
 
 const TOP_ITEMS = [
   { href: "/admin", label: "Dashboard" },
@@ -31,10 +32,24 @@ const CONTENT_ITEMS = [
 
 const BOTTOM_ITEMS = [
   { href: "/admin/theme", label: "Theme" },
+  { href: "/admin/users", label: "Users" },
   { href: "/admin/settings", label: "Settings" },
 ] as const;
 
 type NavItem = { href: string; label: string };
+type AdminShellUser = { name: string; email: string; role: Role };
+
+const ROLE_LABELS: Record<Role, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  editor: "Editor",
+  sales: "Sales",
+  viewer: "Viewer",
+};
+
+function filterByRole(items: readonly NavItem[], role: Role): NavItem[] {
+  return items.filter((item) => canAccessPath(role, item.href));
+}
 
 function isActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin";
@@ -81,14 +96,41 @@ function NavGroup({
   );
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+  pathname,
+  role,
+  onNavigate,
+}: {
+  pathname: string;
+  role: Role;
+  onNavigate?: () => void;
+}) {
+  const top = filterByRole(TOP_ITEMS, role);
+  const pages = filterByRole(PAGE_ITEMS, role);
+  const content = filterByRole(CONTENT_ITEMS, role);
+  const bottom = filterByRole(BOTTOM_ITEMS, role);
+
   return (
     <nav className="flex flex-col">
-      <NavGroup items={TOP_ITEMS} pathname={pathname} onNavigate={onNavigate} />
-      <NavGroup heading="Pages" items={PAGE_ITEMS} pathname={pathname} onNavigate={onNavigate} />
-      <NavGroup heading="Content" items={CONTENT_ITEMS} pathname={pathname} onNavigate={onNavigate} />
-      <NavGroup items={BOTTOM_ITEMS} pathname={pathname} onNavigate={onNavigate} />
+      <NavGroup items={top} pathname={pathname} onNavigate={onNavigate} />
+      {pages.length > 0 && <NavGroup heading="Pages" items={pages} pathname={pathname} onNavigate={onNavigate} />}
+      {content.length > 0 && <NavGroup heading="Content" items={content} pathname={pathname} onNavigate={onNavigate} />}
+      {bottom.length > 0 && <NavGroup items={bottom} pathname={pathname} onNavigate={onNavigate} />}
     </nav>
+  );
+}
+
+function UserBadge({ user }: { user: AdminShellUser }) {
+  return (
+    <div className="mb-2 flex items-center gap-2.5 rounded-lg border border-line bg-white/[0.02] px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neon/12 text-xs font-semibold text-neon">
+        {user.name.slice(0, 1).toUpperCase()}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-fg">{user.name}</p>
+        <p className="truncate text-[0.65rem] text-muted">{ROLE_LABELS[user.role]}</p>
+      </div>
+    </div>
   );
 }
 
@@ -120,9 +162,16 @@ function LogoutButton({ className }: { className?: string }) {
   );
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: AdminShellUser | null;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const role: Role = user?.role ?? "viewer";
 
   return (
     <div className="flex min-h-screen">
@@ -133,8 +182,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <p className="text-xs text-muted">Admin dashboard</p>
         </div>
         <div className="flex-1">
-          <NavLinks pathname={pathname} />
+          <NavLinks pathname={pathname} role={role} />
         </div>
+        {user && <UserBadge user={user} />}
         <LogoutButton />
       </aside>
 
@@ -163,8 +213,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         {mobileOpen && (
           <div className="border-b border-line bg-charcoal/60 px-3 py-3 lg:hidden">
-            <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-            <div className="mt-3">
+            <NavLinks pathname={pathname} role={role} onNavigate={() => setMobileOpen(false)} />
+            <div className="mt-3 flex flex-col gap-2">
+              {user && <UserBadge user={user} />}
               <LogoutButton className="w-full" />
             </div>
           </div>

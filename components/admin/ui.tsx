@@ -38,22 +38,25 @@ export function TextField({
   onChange,
   placeholder,
   maxLength,
+  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   maxLength?: number;
+  type?: "text" | "email" | "password";
 }) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-muted">{label}</span>
       <input
-        type="text"
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
+        autoComplete={type === "password" ? "new-password" : undefined}
         className={inputCls}
       />
     </label>

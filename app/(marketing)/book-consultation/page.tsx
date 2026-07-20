@@ -104,7 +104,7 @@ const DEFAULT_FINAL_CTA = {
   title: "See Exactly How The System Works Before You Commit To Anything",
   text: "Not ready to book yet? Take a look at how Netlink's lead generation and appointment setting process works, step by step.",
   buttonText: "See How It Works",
-  href: "/process",
+  href: "/book-consultation",
   visible: true,
 };
 

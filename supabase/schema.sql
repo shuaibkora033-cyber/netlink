@@ -17,17 +17,46 @@
 create extension if not exists pgcrypto;
 
 -- ── admin_users ─────────────────────────────────────────────────────────────
--- Not used by v1 login (which checks ADMIN_EMAIL/ADMIN_PASSWORD env vars).
--- Included now so a future move to per-user admin accounts / Supabase Auth
--- is a data migration, not a schema rewrite.
+-- Per-user dashboard accounts. /api/admin/login checks this table first and
+-- falls back to ADMIN_EMAIL/ADMIN_PASSWORD (env) only when no row matches —
+-- the env fallback is never disabled, so the operator can't be locked out.
 create table if not exists admin_users (
-  id            uuid primary key default gen_random_uuid(),
-  email         text unique not null,
-  password_hash text not null,
-  created_at    timestamptz not null default now()
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null,
+  email          text unique not null,
+  password_hash  text not null,
+  role           text not null default 'viewer'
+    check (role in ('owner', 'admin', 'editor', 'sales', 'viewer')),
+  is_active      boolean not null default true,
+  last_login_at  timestamptz,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
 );
 alter table admin_users enable row level security;
 -- No policies: no role other than service_role (which bypasses RLS) can read/write this table.
+
+create index if not exists admin_users_email_idx on admin_users (email);
+create index if not exists admin_users_role_idx on admin_users (role);
+
+-- Additive migration for databases that already had the earlier stub shape
+-- (id/email/password_hash/created_at only) — safe to re-run.
+alter table admin_users
+  add column if not exists name text not null default '',
+  add column if not exists role text not null default 'viewer',
+  add column if not exists is_active boolean not null default true,
+  add column if not exists last_login_at timestamptz,
+  add column if not exists updated_at timestamptz not null default now();
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'admin_users_role_check'
+  ) then
+    alter table admin_users
+      add constraint admin_users_role_check
+      check (role in ('owner', 'admin', 'editor', 'sales', 'viewer'));
+  end if;
+end $$;
 
 -- ── theme_settings ──────────────────────────────────────────────────────────
 -- Singleton table — always exactly one row, id = 1.
@@ -79,9 +108,9 @@ create table if not exists homepage_content (
   hero_rotating_words  text[] not null default array['Appointments','Sales Calls','Consultations','Discovery Calls'],
   hero_subheadline     text not null default 'Netlink helps service businesses generate qualified leads, follow up with prospects, and book sales appointments using high-converting funnels, paid ads, automation, and managed appointment setting.',
   primary_cta_text     text not null default 'Book a Free Growth Consultation',
-  primary_cta_link     text not null default '#contact',
+  primary_cta_link     text not null default '/book-consultation',
   secondary_cta_text   text not null default 'See How It Works',
-  secondary_cta_link   text not null default '#process',
+  secondary_cta_link   text not null default '/book-consultation',
   stats                jsonb not null default '[
     {"value": 850, "suffix": "+", "label": "Qualified leads generated"},
     {"value": 42, "suffix": "%", "label": "Booked appointment rate"},
