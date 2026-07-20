@@ -1,17 +1,108 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { canAccessPath, type Role } from "@/lib/admin/roles";
 
-const TOP_ITEMS = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/leads", label: "Leads" },
-  { href: "/admin/media", label: "Media" },
+type IconProps = { className?: string };
+
+function IconOverview({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="14" y="3" width="7" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="3" y="16" width="7" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function IconLeads({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M4 19V10M12 19V5M20 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconMedia({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M21 15l-5-5-9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconTheme({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M12 21a9 9 0 1 1 0-18c4.97 0 9 3.5 9 7.5 0 2-1.5 3.5-3.5 3.5H15a2 2 0 0 0-1.5 3.2c.4.5.2 1.3-.5 1.6-.3.1-.7.2-1 .2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="7.5" cy="10.5" r="1" fill="currentColor" />
+      <circle cx="11" cy="7" r="1" fill="currentColor" />
+      <circle cx="15.5" cy="8" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconUsers({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 20c.7-3.5 3-5.5 5.5-5.5s4.8 2 5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M15.5 5.5c1.4.3 2.5 1.6 2.5 3.1 0 1.5-1.1 2.8-2.5 3.1M18 14.8c1.8.5 3.1 2 3.6 4.2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconSettings({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+type NavItem = { href: string; label: string; icon?: ComponentType<IconProps> };
+
+// Grouping mirrors lib/admin/roles.ts's ROUTE_ROLES exactly — Overview has no
+// restriction, Operate is [owner, admin, sales, viewer] (leads triage roles),
+// Content and Workspace are the editor-reachable and owner-only routes
+// respectively. Regrouping nav headings here never changes what a role can
+// reach — canAccessPath / filterByRole below still do that filtering.
+
+const OVERVIEW_ITEMS = [{ href: "/admin", label: "Dashboard", icon: IconOverview }] as const;
+
+const OPERATE_ITEMS = [
+  { href: "/admin/leads", label: "Leads", icon: IconLeads },
+  { href: "/admin/media", label: "Media", icon: IconMedia },
 ] as const;
 
-const PAGE_ITEMS = [
+// Previously split across two headings ("Pages" / "Content") with
+// /admin/pages/industries duplicated in both — every item here has the same
+// [owner, admin, editor] access in roles.ts, so one heading is both simpler
+// and more accurate. Industries now appears exactly once.
+const CONTENT_ITEMS = [
   { href: "/admin/homepage", label: "Homepage" },
   { href: "/admin/pages/lead-generation", label: "Lead Generation" },
   { href: "/admin/pages/appointment-setting", label: "Appointment Setting" },
@@ -20,23 +111,18 @@ const PAGE_ITEMS = [
   { href: "/admin/pages/results", label: "Results" },
   { href: "/admin/pages/about", label: "About" },
   { href: "/admin/pages/book-consultation", label: "Book Consultation" },
-] as const;
-
-const CONTENT_ITEMS = [
   { href: "/admin/services", label: "Services" },
   { href: "/admin/clients", label: "Clients" },
   { href: "/admin/faqs", label: "FAQs" },
   { href: "/admin/case-studies", label: "Case Studies / Results" },
-  { href: "/admin/pages/industries", label: "Industries" },
 ] as const;
 
-const BOTTOM_ITEMS = [
-  { href: "/admin/theme", label: "Theme" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/settings", label: "Settings" },
+const WORKSPACE_ITEMS = [
+  { href: "/admin/theme", label: "Theme", icon: IconTheme },
+  { href: "/admin/users", label: "Users", icon: IconUsers },
+  { href: "/admin/settings", label: "Settings", icon: IconSettings },
 ] as const;
 
-type NavItem = { href: string; label: string };
 type AdminShellUser = { name: string; email: string; role: Role };
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -70,25 +156,27 @@ function NavGroup({
   return (
     <div className="flex flex-col gap-1">
       {heading && (
-        <p className="px-3 pb-1 pt-3 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted/50">
+        <p className="px-3 pb-1 pt-3 text-admin-caption font-semibold uppercase tracking-[0.08em] text-admin-text-3">
           {heading}
         </p>
       )}
       {items.map((item) => {
         const active = isActive(pathname, item.href);
+        const Icon = item.icon;
         return (
           <Link
             key={item.href}
             href={item.href}
             onClick={onNavigate}
             className={[
-              "rounded-lg border-l-2 px-3 py-2.5 text-sm transition-colors",
+              "flex items-center gap-2.5 rounded-lg border-l-2 px-3 py-2.5 text-admin-body transition-colors duration-200 ease-admin focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40",
               active
-                ? "border-neon bg-neon/[0.08] text-neon"
-                : "border-transparent text-muted hover:bg-white/[0.04] hover:text-fg",
+                ? "border-admin-accent bg-admin-accent/[0.08] text-admin-accent"
+                : "border-transparent text-admin-text-2 hover:bg-admin-surface-2 hover:text-admin-text",
             ].join(" ")}
           >
-            {item.label}
+            {Icon && <Icon className="h-4 w-4 shrink-0" />}
+            <span className="truncate">{item.label}</span>
           </Link>
         );
       })}
@@ -105,30 +193,32 @@ function NavLinks({
   role: Role;
   onNavigate?: () => void;
 }) {
-  const top = filterByRole(TOP_ITEMS, role);
-  const pages = filterByRole(PAGE_ITEMS, role);
+  const overview = filterByRole(OVERVIEW_ITEMS, role);
+  const operate = filterByRole(OPERATE_ITEMS, role);
   const content = filterByRole(CONTENT_ITEMS, role);
-  const bottom = filterByRole(BOTTOM_ITEMS, role);
+  const workspace = filterByRole(WORKSPACE_ITEMS, role);
 
   return (
     <nav className="flex flex-col">
-      <NavGroup items={top} pathname={pathname} onNavigate={onNavigate} />
-      {pages.length > 0 && <NavGroup heading="Pages" items={pages} pathname={pathname} onNavigate={onNavigate} />}
+      {overview.length > 0 && <NavGroup items={overview} pathname={pathname} onNavigate={onNavigate} />}
+      {operate.length > 0 && <NavGroup heading="Operate" items={operate} pathname={pathname} onNavigate={onNavigate} />}
       {content.length > 0 && <NavGroup heading="Content" items={content} pathname={pathname} onNavigate={onNavigate} />}
-      {bottom.length > 0 && <NavGroup items={bottom} pathname={pathname} onNavigate={onNavigate} />}
+      {workspace.length > 0 && (
+        <NavGroup heading="Workspace" items={workspace} pathname={pathname} onNavigate={onNavigate} />
+      )}
     </nav>
   );
 }
 
 function UserBadge({ user }: { user: AdminShellUser }) {
   return (
-    <div className="mb-2 flex items-center gap-2.5 rounded-lg border border-line bg-white/[0.02] px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neon/12 text-xs font-semibold text-neon">
+    <div className="mb-2 flex items-center gap-2.5 rounded-lg border border-admin-border bg-admin-surface px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-admin-accent/12 text-admin-label font-semibold text-admin-accent">
         {user.name.slice(0, 1).toUpperCase()}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-fg">{user.name}</p>
-        <p className="truncate text-[0.65rem] text-muted">{ROLE_LABELS[user.role]}</p>
+        <p className="truncate text-admin-label font-medium text-admin-text">{user.name}</p>
+        <p className="truncate text-admin-caption text-admin-text-3">{ROLE_LABELS[user.role]}</p>
       </div>
     </div>
   );
@@ -153,7 +243,7 @@ function LogoutButton({ className }: { className?: string }) {
       onClick={handleLogout}
       disabled={loggingOut}
       className={[
-        "rounded-lg border border-line px-3 py-2.5 text-left text-sm text-muted transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60",
+        "rounded-lg border border-admin-border px-3 py-2.5 text-left text-admin-body text-admin-text-2 transition-colors duration-200 ease-admin hover:border-admin-danger/30 hover:bg-admin-danger/10 hover:text-admin-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 disabled:opacity-60",
         className ?? "",
       ].join(" ")}
     >
@@ -161,6 +251,8 @@ function LogoutButton({ className }: { className?: string }) {
     </button>
   );
 }
+
+const MOBILE_NAV_ID = "admin-mobile-nav";
 
 export function AdminShell({
   children,
@@ -173,15 +265,36 @@ export function AdminShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const role: Role = user?.role ?? "viewer";
 
+  // Mobile drawer should never persist open across a route change. Adjusting
+  // state during render (React's recommended pattern for "reset on prop
+  // change") rather than in an effect — an effect here would set state
+  // unconditionally on every pathname change, causing an extra render pass.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setMobileOpen(false);
+  }
+
+  // Mobile drawer is a disclosure region, not a modal — no focus trap, but
+  // Escape should still close it.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
+
   return (
     <div className="flex min-h-screen">
-      {/* ── Desktop sidebar ── */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-charcoal/40 px-4 py-6 lg:flex">
+      {/* ── Persistent sidebar (tablet and up) ── */}
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-admin-border bg-admin-bg px-4 py-6 md:flex">
         <div className="mb-8 px-1">
-          <p className="text-sm font-semibold tracking-tight text-fg">Netlink</p>
-          <p className="text-xs text-muted">Admin dashboard</p>
+          <p className="text-admin-body font-semibold tracking-tight text-admin-text">Netlink</p>
+          <p className="text-admin-caption text-admin-text-3">Admin dashboard</p>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <NavLinks pathname={pathname} role={role} />
         </div>
         {user && <UserBadge user={user} />}
@@ -190,29 +303,33 @@ export function AdminShell({
 
       {/* ── Mobile topbar + drawer ── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-[rgba(5,10,12,0.92)] px-4 py-3 backdrop-blur-xl lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-admin-border bg-[rgba(5,10,12,0.92)] px-4 py-3 backdrop-blur-xl md:hidden">
           <div>
-            <p className="text-sm font-semibold text-fg">Netlink Admin</p>
+            <p className="text-admin-body font-semibold text-admin-text">Netlink Admin</p>
           </div>
           <button
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white/[0.03] text-fg"
+            aria-controls={MOBILE_NAV_ID}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-admin-border bg-admin-surface text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40"
           >
             <span className="flex flex-col items-center gap-[4px]">
               <span
-                className={`block h-[1.5px] w-[16px] rounded-full bg-fg/80 transition-all duration-200 ${mobileOpen ? "translate-y-[5.5px] rotate-45" : ""}`}
+                className={`block h-[1.5px] w-[16px] rounded-full bg-current transition-transform duration-200 ease-admin ${mobileOpen ? "translate-y-[5.5px] rotate-45" : ""}`}
               />
               <span
-                className={`block h-[1.5px] w-[16px] rounded-full bg-fg/80 transition-all duration-200 ${mobileOpen ? "-translate-y-[5.5px] -rotate-45" : ""}`}
+                className={`block h-[1.5px] w-[16px] rounded-full bg-current transition-transform duration-200 ease-admin ${mobileOpen ? "-translate-y-[5.5px] -rotate-45" : ""}`}
               />
             </span>
           </button>
         </header>
 
         {mobileOpen && (
-          <div className="border-b border-line bg-charcoal/60 px-3 py-3 lg:hidden">
+          <div
+            id={MOBILE_NAV_ID}
+            className="max-h-[calc(100vh-57px)] overflow-y-auto border-b border-admin-border bg-admin-bg px-3 py-3 md:hidden"
+          >
             <NavLinks pathname={pathname} role={role} onNavigate={() => setMobileOpen(false)} />
             <div className="mt-3 flex flex-col gap-2">
               {user && <UserBadge user={user} />}
