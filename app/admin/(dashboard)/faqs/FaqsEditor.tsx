@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Panel,
   TextField,
@@ -10,6 +10,8 @@ import {
   UnsavedBadge,
   IconButton,
   ToggleField,
+  ErrorState,
+  useRetryGuard,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -36,21 +38,37 @@ export function FaqsEditor() {
   const [rowState, setRowState] = useState<Record<string, SaveState>>({});
   const [rowError, setRowError] = useState<Record<string, string | null>>({});
 
+  // Tracks the most recent load() call so a slower, superseded response can
+  // never overwrite state set by a newer one, and aborts the in-flight
+  // request on unmount or when a newer call starts.
+  const requestRef = useRef<AbortController | null>(null);
+
   async function load() {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     try {
-      const res = await fetch("/api/admin/faqs");
+      const res = await fetch("/api/admin/faqs", { signal: controller.signal });
       const data: FaqRow[] = await res.json();
       if (!res.ok) throw new Error((data as unknown as { error?: string }).error || "Failed to load FAQs.");
+      if (requestRef.current !== controller) return;
       setRows(data);
       setSaved(Object.fromEntries(data.map((r) => [r.id, r])));
       setLoadState("ready");
-    } catch {
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (requestRef.current !== controller) return;
       setLoadState("error");
     }
   }
 
+  const { retrying, guardedRetry } = useRetryGuard();
+
   useEffect(() => {
     load();
+    return () => {
+      requestRef.current?.abort();
+    };
   }, []);
 
   function update(id: string, patch: Partial<FaqRow>) {
@@ -122,9 +140,7 @@ export function FaqsEditor() {
       <Panel title="Questions" description="Each question saves independently.">
         {loadState === "loading" && <p className="text-sm text-muted">Loading FAQs…</p>}
         {loadState === "error" && (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-            Could not load FAQs.
-          </p>
+          <ErrorState message="Could not load FAQs." onRetry={() => guardedRetry(load)} retrying={retrying} />
         )}
 
         {loadState === "ready" &&

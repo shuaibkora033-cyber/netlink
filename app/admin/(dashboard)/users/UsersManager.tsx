@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ROLES, type Role } from "@/lib/admin/roles";
 import {
   TextField,
@@ -9,6 +9,8 @@ import {
   SaveButton,
   StatusMessage,
   IconButton,
+  ErrorState,
+  useRetryGuard,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -397,19 +399,70 @@ export function UsersManager({ currentUserId }: { currentUserId: string | null }
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Tracks the most recent load so a slower, superseded response can never
+  // overwrite state set by a newer one, and aborts the in-flight request on
+  // unmount or when a newer call starts.
+  const requestRef = useRef<AbortController | null>(null);
+
+  async function fetchUsers(signal: AbortSignal): Promise<UserRow[]> {
+    const res = await fetch("/api/admin/users", { signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load users.");
+    return data;
+  }
+
+  // The mount effect below calls fetchUsers directly (inline), not through a
+  // hoisted function that itself setStates — eslint-plugin-react-hooks's
+  // `set-state-in-effect` rule flags a hoisted function's synchronous
+  // setState prefix as unsafe when the effect is its only caller. handleRetry
+  // below duplicates a few lines rather than sharing this exact shape,
+  // precisely to keep the effect's call site inline.
   useEffect(() => {
-    fetch("/api/admin/users")
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load users.");
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    (async () => {
+      try {
+        const data = await fetchUsers(controller.signal);
+        if (requestRef.current !== controller) return;
         setUsers(data);
         setLoadState("ready");
-      })
-      .catch((e) => {
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
         setLoadState("error");
         setLoadError(e instanceof Error ? e.message : "Failed to load users.");
-      });
+      }
+    })();
+    return () => {
+      requestRef.current?.abort();
+    };
   }, []);
+
+  const { retrying, guardedRetry } = useRetryGuard();
+
+  // Distinct from the mount load above: retry keeps loadState at "error" (so
+  // ErrorState stays mounted with its own "Retrying…" state) instead of
+  // flipping to the generic "loading" text.
+  function handleRetry() {
+    guardedRetry(async () => {
+      requestRef.current?.abort();
+      const controller = new AbortController();
+      requestRef.current = controller;
+      setLoadError(null);
+      try {
+        const data = await fetchUsers(controller.signal);
+        if (requestRef.current !== controller) return;
+        setUsers(data);
+        setLoadState("ready");
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
+        setLoadState("error");
+        setLoadError(e instanceof Error ? e.message : "Failed to load users.");
+      }
+    });
+  }
 
   const activeOwnerCount = users.filter((u) => u.role === "owner" && u.is_active).length;
 
@@ -469,9 +522,7 @@ export function UsersManager({ currentUserId }: { currentUserId: string | null }
 
       {loadState === "loading" && <p className="text-admin-body text-admin-text-2">Loading users…</p>}
       {loadState === "error" && (
-        <p role="alert" className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
-          {loadError}
-        </p>
+        <ErrorState message={loadError || "Could not load users."} onRetry={handleRetry} retrying={retrying} />
       )}
 
       {loadState === "ready" && (

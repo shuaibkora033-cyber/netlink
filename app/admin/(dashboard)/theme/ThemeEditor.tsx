@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ThemeSettings } from "@/lib/data/theme";
 import {
   Panel,
@@ -8,6 +8,8 @@ import {
   ToggleField,
   SaveButton,
   StatusMessage,
+  ErrorState,
+  useRetryGuard,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -66,20 +68,70 @@ export function ThemeEditor() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Tracks the most recent load so a slower, superseded response can never
+  // overwrite state set by a newer one, and aborts the in-flight request on
+  // unmount or when a newer call starts.
+  const requestRef = useRef<AbortController | null>(null);
+
+  async function fetchTheme(signal: AbortSignal): Promise<ThemeSettings> {
+    const res = await fetch("/api/admin/theme", { signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load theme settings.");
+    return data;
+  }
+
+  // The mount effect below calls fetchTheme directly (inline), not through a
+  // hoisted function that itself setStates — eslint-plugin-react-hooks's
+  // `set-state-in-effect` rule flags a hoisted function's synchronous
+  // setState prefix as unsafe when the effect is its only caller. handleRetry
+  // below duplicates a few lines rather than sharing this exact shape,
+  // precisely to keep the effect's call site inline.
   useEffect(() => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     (async () => {
       try {
-        const res = await fetch("/api/admin/theme");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load theme settings.");
+        const data = await fetchTheme(controller.signal);
+        if (requestRef.current !== controller) return;
         setTheme(data);
         setLoadState("ready");
       } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
         setLoadError(e instanceof Error ? e.message : "Failed to load theme settings.");
         setLoadState("error");
       }
     })();
+    return () => {
+      requestRef.current?.abort();
+    };
   }, []);
+
+  const { retrying, guardedRetry } = useRetryGuard();
+
+  // Distinct from the mount load above: retry keeps loadState at "error" (so
+  // ErrorState stays mounted with its own "Retrying…" state) instead of
+  // flipping to the generic "loading" text.
+  function handleRetry() {
+    guardedRetry(async () => {
+      requestRef.current?.abort();
+      const controller = new AbortController();
+      requestRef.current = controller;
+      setLoadError(null);
+      try {
+        const data = await fetchTheme(controller.signal);
+        if (requestRef.current !== controller) return;
+        setTheme(data);
+        setLoadState("ready");
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load theme settings.");
+        setLoadState("error");
+      }
+    });
+  }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -107,9 +159,7 @@ export function ThemeEditor() {
   }
   if (loadState === "error" || !theme) {
     return (
-      <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-        {loadError || "Could not load theme settings."}
-      </p>
+      <ErrorState message={loadError || "Could not load theme settings."} onRetry={handleRetry} retrying={retrying} />
     );
   }
 

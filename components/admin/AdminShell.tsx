@@ -142,6 +142,22 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// Every content editor (Homepage, the /pages/* editors, Services, Clients,
+// FAQs, Case Studies, Users, Theme, Settings) is a form or a list of small
+// field-groups — those stay at the narrower reading width. The Overview
+// dashboard, the Leads table, and the Media grid are the only genuinely
+// table/grid-heavy views, where the same narrow cap just wastes horizontal
+// space on wide screens instead of showing more columns/cards/rows.
+//
+// Exact matches only — /admin/leads/[id] (a single lead's detail form) is
+// deliberately excluded even though it's nested under /admin/leads, since
+// it reads like the other Panel-based editors, not a table.
+const WIDE_EXACT_PATHS = ["/admin", "/admin/leads", "/admin/media"];
+
+function isWidePage(pathname: string): boolean {
+  return WIDE_EXACT_PATHS.includes(pathname);
+}
+
 function NavGroup({
   heading,
   items,
@@ -264,6 +280,7 @@ export function AdminShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const role: Role = user?.role ?? "viewer";
+  const wide = isWidePage(pathname);
 
   // Mobile drawer should never persist open across a route change. Adjusting
   // state during render (React's recommended pattern for "reset on prop
@@ -339,7 +356,7 @@ export function AdminShell({
         )}
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-          <div className="mx-auto max-w-4xl">{children}</div>
+          <div className={`mx-auto ${wide ? "max-w-[1600px]" : "max-w-4xl"}`}>{children}</div>
         </main>
       </div>
     </div>

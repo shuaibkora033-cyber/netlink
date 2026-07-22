@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -352,6 +352,140 @@ export function StatusMessage({ state, error }: { state: SaveState; error?: stri
     );
   }
   return null;
+}
+
+/**
+ * Every small action button Phase 6 added (Retry, Clear filters, Show all)
+ * is visually compact (~30px tall) but still needs a ~44px touch target.
+ * Rather than growing the visible box (which would bloat dense desktop
+ * layouts), this expands the invisible hit area via a `::before` pseudo-
+ * element positioned outside the button's own box — the click/tap region
+ * grows, the rendered button doesn't. Requires `relative` on the button
+ * itself, which every consumer below already has (or gets added here).
+ */
+export const touchTargetCls = "before:absolute before:-inset-2.5 before:content-['']";
+
+/**
+ * Tracks "is a retry in flight" for a single retryable load. Two guards, not
+ * one: `retrying` drives the UI (disabled button, "Retrying…" label), while
+ * `inFlightRef` is checked and set *synchronously* inside `guardedRetry` so
+ * a second invocation is rejected even if it happens before React has had a
+ * chance to re-render with `retrying: true` — the classic gap a state-only
+ * guard leaves open between two clicks (or two Enter presses) that land in
+ * the same or adjacent ticks.
+ *
+ * `fn` must be an async function that never throws (catches its own errors
+ * and reflects them in whatever load-state it manages) — `guardedRetry`
+ * only needs to know when it has *settled*, not whether it succeeded.
+ */
+export function useRetryGuard() {
+  const [retrying, setRetrying] = useState(false);
+  const inFlightRef = useRef(false);
+
+  async function guardedRetry(fn: () => Promise<void>) {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setRetrying(true);
+    try {
+      await fn();
+    } finally {
+      inFlightRef.current = false;
+      setRetrying(false);
+    }
+  }
+
+  return { retrying, guardedRetry };
+}
+
+/** Data-load failure with a working retry action — used in place of a bare
+ * error paragraph everywhere a page fetches its own content on mount.
+ * `retrying` (from useRetryGuard, or an equivalent flag a hook exposes
+ * itself) disables the button and swaps its label to "Retrying…" for the
+ * duration of the in-flight request; combined with the caller's own
+ * re-entrancy guard, a rapid double-click or repeated Enter can't start a
+ * second request. */
+export function ErrorState({
+  message,
+  onRetry,
+  retrying = false,
+}: {
+  message: string;
+  onRetry: () => void;
+  retrying?: boolean;
+}) {
+  // Mirrors `retrying` synchronously so the click handler can reject a
+  // second click even in the brief window before React re-renders with
+  // retrying: true (see useRetryGuard's own inFlightRef for the same
+  // reasoning on the caller's side — belt and suspenders, not redundant,
+  // since this component may also be handed a plain `onRetry` with no
+  // `retrying` wired up at all).
+  const clickGuardRef = useRef(false);
+
+  useEffect(() => {
+    if (!retrying) clickGuardRef.current = false;
+  }, [retrying]);
+
+  function handleClick() {
+    if (retrying || clickGuardRef.current) return;
+    clickGuardRef.current = true;
+    onRetry();
+  }
+
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-start gap-3 rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-4 py-3 text-admin-body text-admin-danger sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p>{message}</p>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={retrying}
+        aria-busy={retrying}
+        className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-admin-danger/30 px-3 py-1.5 text-admin-label font-medium text-admin-danger transition-colors duration-200 ease-admin hover:bg-admin-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 disabled:cursor-not-allowed disabled:opacity-70 ${touchTargetCls}`}
+      >
+        {retrying ? "Retrying…" : "Retry"}
+      </button>
+    </div>
+  );
+}
+
+/** Pulsing placeholder block — compose into skeletons that mirror the shape
+ * of the content they stand in for (see LeadsList's row skeleton and
+ * MediaLibrary's card skeleton). */
+export function SkeletonBlock({ className = "" }: { className?: string }) {
+  return <div aria-hidden="true" className={`animate-pulse rounded bg-admin-surface-3 ${className}`} />;
+}
+
+/** Centered placeholder for a list/grid with nothing to show — no data yet,
+ * no search results, or no filter matches. `actionLabel`/`onAction` render an
+ * optional recovery action (e.g. "Clear filters"). */
+export function EmptyState({
+  title,
+  message,
+  actionLabel,
+  onAction,
+}: {
+  title?: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-admin-border px-6 py-16 text-center">
+      {title && <p className="text-admin-body font-medium text-admin-text">{title}</p>}
+      <p className="text-admin-body text-admin-text-2">{message}</p>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className={`relative mt-2 rounded-full border border-admin-border bg-admin-surface px-4 py-1.5 text-admin-label font-medium text-admin-text transition-colors duration-200 ease-admin hover:border-admin-accent/30 hover:text-admin-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 ${touchTargetCls}`}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function IconButton({

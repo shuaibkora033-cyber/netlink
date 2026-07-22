@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STORAGE_FOLDERS, type StorageFolder } from "@/lib/media";
 import { MediaUploader } from "@/components/admin/MediaUploader";
+import { ErrorState, EmptyState, SkeletonBlock, useRetryGuard } from "@/components/admin/ui";
 
 type MediaItem = {
   path: string;
@@ -30,6 +31,34 @@ function formatBytes(bytes: number | null): string {
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Mirrors MediaCard's shape (thumbnail + two text lines + a button row) so
+ * the loading state doesn't jump when real cards replace it. */
+function MediaCardSkeleton() {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-admin-border bg-admin-surface">
+      <div className="aspect-video w-full bg-admin-surface-2" aria-hidden="true" />
+      <div className="flex flex-col gap-2 p-3">
+        <SkeletonBlock className="h-4 w-3/4" />
+        <SkeletonBlock className="h-3 w-1/2" />
+        <div className="mt-2 flex items-center gap-2">
+          <SkeletonBlock className="h-7 flex-1" />
+          <SkeletonBlock className="h-7 w-16" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MediaGridSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
+      {Array.from({ length: 6 }, (_, i) => (
+        <MediaCardSkeleton key={i} />
+      ))}
+    </div>
+  );
 }
 
 function MediaCard({ item, onDeleted }: { item: MediaItem; onDeleted: (path: string) => void }) {
@@ -98,26 +127,73 @@ export function MediaLibrary() {
   const [uploadFolder, setUploadFolder] = useState<StorageFolder>("uploads");
   const [uploadUrl, setUploadUrl] = useState("");
 
-  // Fetches the media grid. Deliberately NOT shared between the mount effect
-  // below and handleLibraryUpload's post-upload refresh — two independent
-  // fetch-and-setState functions, one per call site, so neither reads as an
-  // effect indirectly driving setState through a function also called from
-  // an event handler.
-  async function fetchMedia(): Promise<MediaItem[] | null> {
-    const res = await fetch("/api/admin/media");
+  // Fetches the media grid. Deliberately NOT shared between the mount/retry
+  // path below and handleLibraryUpload's post-upload refresh — two
+  // independent fetch-and-setState call sites, so neither reads as an effect
+  // indirectly driving setState through a function also called from an
+  // event handler. `signal` is only threaded through by loadMedia, which
+  // owns cancellation for the mount/retry path.
+  async function fetchMedia(signal?: AbortSignal): Promise<MediaItem[] | null> {
+    const res = await fetch("/api/admin/media", { signal });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to load media.");
     return data;
   }
 
+  // Tracks the most recent load so a slower, superseded response can never
+  // overwrite state set by a newer one, and aborts the in-flight request on
+  // unmount or when a newer call starts.
+  const requestRef = useRef<AbortController | null>(null);
+
+  // The mount effect below calls fetchMedia directly (inline), not through a
+  // hoisted function that itself setStates — eslint-plugin-react-hooks's
+  // `set-state-in-effect` rule flags a hoisted function's synchronous
+  // setState prefix as unsafe when the effect is its only caller. handleRetry
+  // below duplicates a few lines rather than sharing this exact shape,
+  // precisely to keep the effect's call site inline.
   useEffect(() => {
-    fetchMedia()
-      .then((data) => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    (async () => {
+      try {
+        const data = await fetchMedia(controller.signal);
+        if (requestRef.current !== controller) return;
         setItems(data ?? []);
         setLoadState("ready");
-      })
-      .catch(() => setLoadState("error"));
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
+        setLoadState("error");
+      }
+    })();
+    return () => {
+      requestRef.current?.abort();
+    };
   }, []);
+
+  const { retrying, guardedRetry } = useRetryGuard();
+
+  // Distinct from the plain mount call above — a retry keeps loadState at
+  // "error" (so ErrorState stays mounted with its own "Retrying…" state)
+  // instead of flipping to the generic loading skeleton.
+  function handleRetry() {
+    guardedRetry(async () => {
+      requestRef.current?.abort();
+      const controller = new AbortController();
+      requestRef.current = controller;
+      try {
+        const data = await fetchMedia(controller.signal);
+        if (requestRef.current !== controller) return;
+        setItems(data ?? []);
+        setLoadState("ready");
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
+        setLoadState("error");
+      }
+    });
+  }
 
   // The uploader here is just a quick way to add files to the library — once
   // a file uploads, refresh the grid below and reset the field. This is a
@@ -188,20 +264,23 @@ export function MediaLibrary() {
         ))}
       </div>
 
-      {loadState === "loading" && <p className="text-admin-body text-admin-text-2">Loading media…</p>}
+      {loadState === "loading" && <MediaGridSkeleton />}
       {loadState === "error" && (
-        <p role="alert" className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
-          Could not load media.
-        </p>
+        <ErrorState message="Could not load media." onRetry={handleRetry} retrying={retrying} />
       )}
-      {loadState === "ready" && filtered.length === 0 && (
-        <p className="rounded-2xl border border-dashed border-admin-border px-6 py-16 text-center text-admin-body text-admin-text-2">
-          No media uploaded yet.
-        </p>
+      {loadState === "ready" && filtered.length === 0 && items.length === 0 && (
+        <EmptyState message="No media uploaded yet. Upload a file above to get started." />
+      )}
+      {loadState === "ready" && filtered.length === 0 && items.length > 0 && (
+        <EmptyState
+          message={`No ${typeFilter}s uploaded yet.`}
+          actionLabel="Show all"
+          onAction={() => setTypeFilter("all")}
+        />
       )}
 
       {loadState === "ready" && filtered.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((item) => (
             <MediaCard
               key={item.path}

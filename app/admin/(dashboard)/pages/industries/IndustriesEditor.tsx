@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { industriesPage, pageCta } from "@/lib/content";
 import { usePageSections, isSectionDirty } from "@/components/admin/useContentSections";
 import { HeroPanel, FinalCtaPanel, type HeroContent, type FinalCtaContent } from "@/components/admin/SectionPanels";
@@ -13,6 +13,8 @@ import {
   UnsavedBadge,
   IconButton,
   ToggleField,
+  ErrorState,
+  useRetryGuard,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -49,7 +51,7 @@ function isRowDirty(row: IndustryCardRow, saved: Record<string, IndustryCardRow>
 }
 
 export function IndustriesEditor() {
-  const { loadState, loadError, sections, update, save } = usePageSections(PAGE_SLUG, FALLBACKS);
+  const { loadState, loadError, sections, update, save, reload, retrying } = usePageSections(PAGE_SLUG, FALLBACKS);
 
   const [cards, setCards] = useState<IndustryCardRow[]>([]);
   const [savedCards, setSavedCards] = useState<Record<string, IndustryCardRow>>({});
@@ -57,22 +59,39 @@ export function IndustriesEditor() {
   const [rowState, setRowState] = useState<Record<string, SaveState>>({});
   const [rowError, setRowError] = useState<Record<string, string | null>>({});
 
+  // Tracks the most recent loadCards() call so a slower, superseded response
+  // (whether from an accidental overlap or a genuinely stale request) can
+  // never overwrite state set by a newer one, and aborts the in-flight
+  // request outright on unmount or when a newer call starts.
+  const cardsRequestRef = useRef<AbortController | null>(null);
+
   async function loadCards() {
+    cardsRequestRef.current?.abort();
+    const controller = new AbortController();
+    cardsRequestRef.current = controller;
     try {
-      const res = await fetch("/api/admin/industry-cards");
+      const res = await fetch("/api/admin/industry-cards", { signal: controller.signal });
       const data: IndustryCardRow[] = await res.json();
       if (!res.ok) throw new Error((data as unknown as { error?: string }).error || "Failed to load industries.");
+      if (cardsRequestRef.current !== controller) return;
       setCards(data);
       setSavedCards(Object.fromEntries(data.map((row) => [row.id, row])));
       setCardsLoadState("ready");
-    } catch {
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (cardsRequestRef.current !== controller) return;
       setCardsLoadState("error");
     }
   }
 
   useEffect(() => {
     loadCards();
+    return () => {
+      cardsRequestRef.current?.abort();
+    };
   }, []);
+
+  const { retrying: cardsRetrying, guardedRetry: guardedCardsRetry } = useRetryGuard();
 
   function updateCard(id: string, patch: Partial<IndustryCardRow>) {
     setCards((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -136,11 +155,7 @@ export function IndustriesEditor() {
     return <p className="text-sm text-muted">Loading page content…</p>;
   }
   if (loadState === "error" || !sections) {
-    return (
-      <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-        {loadError || "Could not load page content."}
-      </p>
-    );
+    return <ErrorState message={loadError || "Could not load page content."} onRetry={reload} retrying={retrying} />;
   }
 
   return (
@@ -165,9 +180,11 @@ export function IndustriesEditor() {
       <Panel title="Industry cards" description="Each card saves independently.">
         {cardsLoadState === "loading" && <p className="text-sm text-muted">Loading industries…</p>}
         {cardsLoadState === "error" && (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-            Could not load industries.
-          </p>
+          <ErrorState
+            message="Could not load industries."
+            onRetry={() => guardedCardsRetry(loadCards)}
+            retrying={cardsRetrying}
+          />
         )}
 
         {cardsLoadState === "ready" &&

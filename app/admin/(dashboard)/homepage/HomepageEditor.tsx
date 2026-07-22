@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { HomepageContent, Stat, GrowthStep, FinalCta } from "@/lib/data/homepage";
@@ -17,6 +17,8 @@ import {
   useStableIds,
   useReorder,
   arrayMove,
+  ErrorState,
+  useRetryGuard,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -138,22 +140,54 @@ export function HomepageEditor() {
   const [resetState, setResetState] = useState<SaveState>("idle");
   const [resetError, setResetError] = useState<string | null>(null);
 
-  async function loadHomepage() {
+  // Tracks the most recent fetch so a slower, superseded response can never
+  // overwrite state set by a newer one, and aborts the in-flight request on
+  // unmount or when a newer call starts. Shared by the mount load, the
+  // reset-to-defaults reload, and retry — all three ultimately fetch the
+  // same resource.
+  const requestRef = useRef<AbortController | null>(null);
+
+  async function loadHomepageInternal(options: { showLoading: boolean }) {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    if (options.showLoading) setLoadState("loading");
+    setLoadError(null);
     try {
-      const res = await fetch("/api/admin/homepage");
+      const res = await fetch("/api/admin/homepage", { signal: controller.signal });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load homepage content.");
+      if (requestRef.current !== controller) return;
       setSections(buildSections(data));
       setLoadState("ready");
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (requestRef.current !== controller) return;
       setLoadError(e instanceof Error ? e.message : "Failed to load homepage content.");
       setLoadState("error");
     }
   }
 
+  async function loadHomepage() {
+    await loadHomepageInternal({ showLoading: true });
+  }
+
   useEffect(() => {
     loadHomepage();
+    return () => {
+      requestRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadHomepage is stable per render, only need to run once on mount.
   }, []);
+
+  const { retrying, guardedRetry } = useRetryGuard();
+
+  // Distinct from loadHomepage() above: retry keeps loadState at "error" (so
+  // ErrorState stays mounted with its own "Retrying…" state) instead of
+  // flipping to the generic "loading" skeleton the mount/reset paths use.
+  function handleRetry() {
+    guardedRetry(() => loadHomepageInternal({ showLoading: false }));
+  }
 
   async function handleResetToDefaults() {
     const confirmed = window.confirm(
@@ -253,9 +287,7 @@ export function HomepageEditor() {
   }
   if (loadState === "error" || !sections) {
     return (
-      <p className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
-        {loadError || "Could not load homepage content."}
-      </p>
+      <ErrorState message={loadError || "Could not load homepage content."} onRetry={handleRetry} retrying={retrying} />
     );
   }
 

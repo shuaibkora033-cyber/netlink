@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   LEAD_STATUSES,
@@ -13,6 +13,7 @@ import {
   type LeadQuality,
 } from "@/lib/leads";
 import { StatusBadge, QualityBadge } from "@/components/admin/leadBadges";
+import { ErrorState, SkeletonBlock, touchTargetCls } from "@/components/admin/ui";
 
 type LeadRow = {
   id: string;
@@ -162,6 +163,44 @@ function SortableTh({
   );
 }
 
+/** Mirrors a real row's 8 columns (name+company, contact, service+budget,
+ * industry, status pill, score bar, created date, follow-up date) so the
+ * table doesn't reflow when real rows arrive. */
+function LeadRowSkeleton() {
+  return (
+    <tr className="border-b border-admin-border last:border-b-0" aria-hidden="true">
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-4 w-32" />
+        <SkeletonBlock className="mt-1.5 h-3 w-20" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-4 w-36" />
+        <SkeletonBlock className="mt-1.5 h-3 w-24" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-4 w-28" />
+        <SkeletonBlock className="mt-1.5 h-3 w-20" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-4 w-20" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-5 w-16 rounded-full" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-1.5 w-14 rounded-full" />
+        <SkeletonBlock className="mt-1.5 h-4 w-10" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-4 w-16" />
+      </td>
+      <td className="px-4 py-3 align-top">
+        <SkeletonBlock className="h-4 w-16" />
+      </td>
+    </tr>
+  );
+}
+
 function Th({ label, align = "left" }: { label: string; align?: "left" | "right" }) {
   return (
     <th
@@ -191,6 +230,19 @@ export function LeadsList() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortColumn>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // Bumped by handleRetry() below to retrigger the fetch effect after an
+  // error — a dependency change is the only way to re-run an effect on
+  // demand.
+  const [retryToken, setRetryToken] = useState(0);
+  // Separate from loadState: a retry keeps loadState at "error" (so
+  // ErrorState stays mounted throughout) and only flips this instead, which
+  // ErrorState uses to disable its button and show "Retrying…".
+  const [retrying, setRetrying] = useState(false);
+  // Checked and set synchronously inside handleRetry() — a state-only guard
+  // still has a gap between a click and the next render, where a second
+  // click would read the same stale "not retrying yet" value. A ref closes
+  // that gap regardless of React's render timing.
+  const retryInFlightRef = useRef(false);
 
   const hasFilters = Boolean(status || quality || service || budget || industry || debouncedSearch || showArchived);
 
@@ -243,6 +295,8 @@ export function LeadsList() {
         setLeads(rows);
         setTotal(rowTotal);
         setLoadState("ready");
+        setRetrying(false);
+        retryInFlightRef.current = false;
 
         // Defensive clamp: if something else shrank the result set out from
         // under the current page (e.g. a lead got archived elsewhere), step
@@ -253,11 +307,30 @@ export function LeadsList() {
       .catch((e) => {
         if (e.name === "AbortError") return;
         setLoadState("error");
+        setRetrying(false);
+        retryInFlightRef.current = false;
       });
 
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- buildFilterParams reads state already listed below; including it would just re-create it every render without changing behavior.
-  }, [status, quality, service, budget, industry, showArchived, debouncedSearch, page, sortBy, sortDir]);
+  }, [status, quality, service, budget, industry, showArchived, debouncedSearch, page, sortBy, sortDir, retryToken]);
+
+  function handleRetry() {
+    if (retryInFlightRef.current) return;
+    retryInFlightRef.current = true;
+    setRetrying(true);
+    setRetryToken((t) => t + 1);
+  }
+
+  function clearAllFilters() {
+    setSearch("");
+    setStatus("");
+    setQuality("");
+    setService("");
+    setBudget("");
+    setIndustry("");
+    setShowArchived(false);
+  }
 
   async function handleExportCsv() {
     setExporting(true);
@@ -303,11 +376,16 @@ export function LeadsList() {
     }
   }
 
+  // Distinct copy per empty reason — search, filter, archived-only, and true
+  // no-data all mean something different to the person looking at an empty
+  // table, so each gets its own message (and, where there's something to
+  // undo, a "Clear filters" action below).
   const emptyMessage = useMemo(() => {
-    if (showArchived && !status && !quality && !service && !budget && !industry && !debouncedSearch) {
+    if (debouncedSearch) return `No leads match "${debouncedSearch}".`;
+    if (showArchived && !status && !quality && !service && !budget && !industry) {
       return "No archived leads.";
     }
-    if (hasFilters) return "No leads match this filter.";
+    if (hasFilters) return "No leads match these filters.";
     return "No leads yet. Submissions from /book-consultation will show up here.";
   }, [showArchived, status, quality, service, budget, industry, debouncedSearch, hasFilters]);
 
@@ -387,9 +465,7 @@ export function LeadsList() {
       </div>
 
       {loadState === "error" && (
-        <p role="alert" className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
-          Could not load leads.
-        </p>
+        <ErrorState message="Could not load leads." onRetry={handleRetry} retrying={retrying} />
       )}
 
       {loadState !== "error" && (
@@ -408,17 +484,21 @@ export function LeadsList() {
               </tr>
             </thead>
             <tbody>
-              {loadState === "loading" && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center text-admin-body text-admin-text-2">
-                    Loading leads…
-                  </td>
-                </tr>
-              )}
+              {loadState === "loading" &&
+                Array.from({ length: 6 }, (_, i) => <LeadRowSkeleton key={i} />)}
               {loadState === "ready" && leads.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center text-admin-body text-admin-text-2">
-                    {emptyMessage}
+                  <td colSpan={8} className="px-4 py-16 text-center">
+                    <p className="text-admin-body text-admin-text-2">{emptyMessage}</p>
+                    {hasFilters && (
+                      <button
+                        type="button"
+                        onClick={clearAllFilters}
+                        className={`relative mt-3 rounded-full border border-admin-border bg-admin-surface px-4 py-1.5 text-admin-label font-medium text-admin-text transition-colors duration-200 ease-admin hover:border-admin-accent/30 hover:text-admin-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 ${touchTargetCls}`}
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </td>
                 </tr>
               )}

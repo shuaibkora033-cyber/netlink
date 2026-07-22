@@ -13,7 +13,7 @@ import {
   type BulletsContent,
   type FinalCtaContent,
 } from "@/components/admin/SectionPanels";
-import { Panel, SaveButton, StatusMessage, UnsavedBadge } from "@/components/admin/ui";
+import { Panel, SaveButton, StatusMessage, UnsavedBadge, ErrorState } from "@/components/admin/ui";
 
 const PAGE_SLUG = "results";
 
@@ -40,17 +40,13 @@ const FALLBACKS = {
 };
 
 export function ResultsEditor() {
-  const { loadState, loadError, sections, update, save } = usePageSections(PAGE_SLUG, FALLBACKS);
+  const { loadState, loadError, sections, update, save, reload, retrying } = usePageSections(PAGE_SLUG, FALLBACKS);
 
   if (loadState === "loading") {
     return <p className="text-sm text-muted">Loading page content…</p>;
   }
   if (loadState === "error" || !sections) {
-    return (
-      <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-        {loadError || "Could not load page content."}
-      </p>
-    );
+    return <ErrorState message={loadError || "Could not load page content."} onRetry={reload} retrying={retrying} />;
   }
 
   return (

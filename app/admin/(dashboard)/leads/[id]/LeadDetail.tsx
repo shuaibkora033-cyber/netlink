@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { LEAD_STATUSES, getLeadQuality, type LeadStatus } from "@/lib/leads";
 import { StatusBadge, QualityBadge, BadgeGroup } from "@/components/admin/leadBadges";
@@ -11,6 +11,8 @@ import {
   SaveButton,
   StatusMessage,
   UnsavedBadge,
+  ErrorState,
+  useRetryGuard,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -108,23 +110,78 @@ export function LeadDetail({ id }: { id: string }) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Tracks the most recent load so a slower, superseded response can never
+  // overwrite state set by a newer one, and aborts the in-flight request on
+  // unmount or when a newer call starts.
+  const requestRef = useRef<AbortController | null>(null);
+
+  async function fetchLead(signal: AbortSignal): Promise<Lead> {
+    const res = await fetch(`/api/admin/leads/${id}`, { signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load lead.");
+    return data;
+  }
+
+  function applyLead(data: Lead) {
+    setLead(data);
+    const initial = fieldsFromLead(data);
+    setFields(initial);
+    setSaved(initial);
+    setLoadState("ready");
+  }
+
+  // The mount effect below calls fetchLead directly (inline), not through a
+  // hoisted function that itself setStates — eslint-plugin-react-hooks's
+  // `set-state-in-effect` rule flags a hoisted function's synchronous
+  // setState prefix as unsafe when the effect is its only caller (it can't
+  // trace ref/call safety through an intermediate layer). handleRetry below
+  // duplicates a few lines rather than sharing this exact shape, precisely
+  // to keep the effect's call site inline.
   useEffect(() => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     (async () => {
       try {
-        const res = await fetch(`/api/admin/leads/${id}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load lead.");
-        setLead(data);
-        const initial = fieldsFromLead(data);
-        setFields(initial);
-        setSaved(initial);
-        setLoadState("ready");
+        const data = await fetchLead(controller.signal);
+        if (requestRef.current !== controller) return;
+        applyLead(data);
       } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
         setLoadError(e instanceof Error ? e.message : "Failed to load lead.");
         setLoadState("error");
       }
     })();
+    return () => {
+      requestRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLead/applyLead close over id/state already accounted for; id is listed below.
   }, [id]);
+
+  const { retrying, guardedRetry } = useRetryGuard();
+
+  // Distinct from the mount load above: retry keeps loadState at "error" (so
+  // ErrorState stays mounted with its own "Retrying…" state) instead of
+  // flipping to the generic "loading" text.
+  function handleRetry() {
+    guardedRetry(async () => {
+      requestRef.current?.abort();
+      const controller = new AbortController();
+      requestRef.current = controller;
+      setLoadError(null);
+      try {
+        const data = await fetchLead(controller.signal);
+        if (requestRef.current !== controller) return;
+        applyLead(data);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (requestRef.current !== controller) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load lead.");
+        setLoadState("error");
+      }
+    });
+  }
 
   const dirty = Boolean(fields && saved && JSON.stringify(fields) !== JSON.stringify(saved));
 
@@ -173,9 +230,7 @@ export function LeadDetail({ id }: { id: string }) {
   if (loadState === "error" || !lead || !fields) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {loadError || "Could not load this lead."}
-        </p>
+        <ErrorState message={loadError || "Could not load this lead."} onRetry={handleRetry} retrying={retrying} />
         <Link href="/admin/leads" className="text-sm text-neon hover:text-neon/80">← Back to leads</Link>
       </div>
     );
