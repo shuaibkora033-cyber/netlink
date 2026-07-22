@@ -56,12 +56,12 @@ function formatDateTime(iso: string | null) {
 }
 
 const selectCls =
-  "w-full cursor-pointer rounded-xl border border-line bg-white/[0.03] px-4 py-2.5 text-sm text-fg outline-none transition-all duration-200 focus:border-neon/50 focus:bg-white/[0.05] focus:ring-1 focus:ring-neon/20";
+  "w-full cursor-pointer rounded-xl border border-admin-border bg-admin-surface px-4 py-2.5 text-admin-body text-admin-text outline-none transition-colors duration-200 ease-admin focus:border-admin-accent/50 focus:bg-admin-surface-2 focus:ring-1 focus:ring-admin-accent/20";
 
 function RoleSelect({ value, onChange }: { value: Role; onChange: (role: Role) => void }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted">Role</span>
+      <span className="text-admin-label font-medium text-admin-text-2">Role</span>
       <select value={value} onChange={(e) => onChange(e.target.value as Role)} className={selectCls}>
         {ROLES.map((r) => (
           <option key={r} value={r}>
@@ -69,7 +69,7 @@ function RoleSelect({ value, onChange }: { value: Role; onChange: (role: Role) =
           </option>
         ))}
       </select>
-      <span className="text-xs text-muted">{ROLE_DESCRIPTIONS[value]}</span>
+      <span className="text-admin-caption text-admin-text-3">{ROLE_DESCRIPTIONS[value]}</span>
     </label>
   );
 }
@@ -78,13 +78,13 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
     <span
       className={[
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.65rem] font-medium",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-admin-caption font-medium",
         isActive
-          ? "border-neon/25 bg-neon/10 text-neon"
-          : "border-white/15 bg-white/[0.04] text-muted",
+          ? "border-admin-accent/25 bg-admin-accent/10 text-admin-accent"
+          : "border-admin-border-strong bg-admin-surface-2 text-admin-text-3",
       ].join(" ")}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-neon" : "bg-muted/60"}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-admin-accent" : "bg-admin-text-3"}`} />
       {isActive ? "Active" : "Deactivated"}
     </span>
   );
@@ -92,12 +92,16 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 function RoleBadge({ role }: { role: Role }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-line bg-white/[0.03] px-2.5 py-1 text-[0.65rem] font-medium text-fg/80">
+    <span className="inline-flex items-center rounded-full border border-admin-border bg-admin-surface px-2.5 py-1 text-admin-caption font-medium text-admin-text/80">
       {ROLE_LABELS[role]}
     </span>
   );
 }
 
+// Overlay keeps its own backdrop-blur (real hierarchy: dims/separates the
+// page behind the dialog); the panel itself is a solid admin-surface-2, not
+// `.glass` — blurring an already-blurred backdrop a second time added no
+// visible difference and cost an extra composited layer for no reason.
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <div
@@ -105,16 +109,16 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-line glass p-6"
+        className="w-full max-w-md rounded-2xl border border-admin-border bg-admin-surface-2 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-fg">{title}</h2>
+          <h2 className="text-admin-subhead font-semibold text-admin-text">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/[0.06] hover:text-fg"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-admin-text-2 transition-colors duration-200 ease-admin hover:bg-admin-surface-3 hover:text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40"
           >
             ✕
           </button>
@@ -127,6 +131,8 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 // ── Create user ──────────────────────────────────────────────────────────────
 
+type PasswordFieldErrors = { password?: string; confirmPassword?: string };
+
 function CreateUserPanel({ onCreated }: { onCreated: (user: UserRow) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -137,6 +143,7 @@ function CreateUserPanel({ onCreated }: { onCreated: (user: UserRow) => void }) 
   const [isActive, setIsActive] = useState(true);
   const [state, setState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<PasswordFieldErrors>({});
 
   function reset() {
     setName("");
@@ -147,20 +154,23 @@ function CreateUserPanel({ onCreated }: { onCreated: (user: UserRow) => void }) 
     setIsActive(true);
     setState("idle");
     setError(null);
+    setFieldErrors({});
   }
 
   async function handleCreate() {
-    if (password.length < 8) {
+    // Same two rules as before — just surfaced at the specific field now,
+    // in addition to the existing summary banner below.
+    const nextFieldErrors: PasswordFieldErrors = {};
+    if (password.length < 8) nextFieldErrors.password = "Password must be at least 8 characters.";
+    if (password !== confirmPassword) nextFieldErrors.confirmPassword = "Passwords do not match.";
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
       setState("error");
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setState("error");
-      setError("Passwords do not match.");
+      setError("Please fix the highlighted fields.");
       return;
     }
 
+    setFieldErrors({});
     setState("saving");
     setError(null);
     try {
@@ -186,7 +196,7 @@ function CreateUserPanel({ onCreated }: { onCreated: (user: UserRow) => void }) 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon to-neon-soft px-5 py-2.5 text-sm font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(13,253,209,0.55)] transition-shadow hover:shadow-[0_14px_50px_-8px_rgba(13,253,209,0.75)]"
+        className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon to-neon-soft px-5 py-2.5 text-admin-body font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(13,253,209,0.55)] transition-shadow duration-200 ease-admin hover:shadow-[0_14px_50px_-8px_rgba(13,253,209,0.75)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-bg"
       >
         + New user
       </button>
@@ -194,26 +204,45 @@ function CreateUserPanel({ onCreated }: { onCreated: (user: UserRow) => void }) 
   }
 
   return (
-    <section className="rounded-2xl border border-line glass p-5 sm:p-7">
+    <section className="rounded-2xl border border-admin-border glass p-5 sm:p-7">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-fg">Create user</h2>
+        <h2 className="text-admin-subhead font-semibold text-admin-text">Create user</h2>
         <button
           type="button"
           onClick={() => {
             reset();
             setOpen(false);
           }}
-          className="text-xs text-muted hover:text-fg"
+          className="text-admin-label text-admin-text-2 transition-colors duration-200 ease-admin hover:text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 rounded"
         >
           Cancel
         </button>
       </div>
       <div className="flex flex-col gap-4">
-        <TextField label="Name" value={name} onChange={setName} placeholder="Jane Doe" />
-        <TextField label="Email" value={email} onChange={setEmail} placeholder="jane@netlink.com" />
+        <TextField label="Name" value={name} onChange={setName} placeholder="Jane Doe" required />
+        <TextField label="Email" value={email} onChange={setEmail} placeholder="jane@netlink.com" required />
         <div className="grid gap-4 sm:grid-cols-2">
-          <PasswordInput label="Password" value={password} onChange={setPassword} placeholder="Min. 8 characters" />
-          <PasswordInput label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} />
+          <PasswordInput
+            label="Password"
+            value={password}
+            onChange={(v) => {
+              setPassword(v);
+              setFieldErrors((prev) => (prev.password ? { ...prev, password: undefined } : prev));
+            }}
+            placeholder="Min. 8 characters"
+            required
+            error={fieldErrors.password}
+          />
+          <PasswordInput
+            label="Confirm password"
+            value={confirmPassword}
+            onChange={(v) => {
+              setConfirmPassword(v);
+              setFieldErrors((prev) => (prev.confirmPassword ? { ...prev, confirmPassword: undefined } : prev));
+            }}
+            required
+            error={fieldErrors.confirmPassword}
+          />
         </div>
         <RoleSelect value={role} onChange={setRole} />
         <ToggleField label="Active" checked={isActive} onChange={setIsActive} />
@@ -266,8 +295,8 @@ function EditUserModal({
   return (
     <Modal title="Edit user" onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <TextField label="Name" value={name} onChange={setName} />
-        <TextField label="Email" value={email} onChange={setEmail} />
+        <TextField label="Name" value={name} onChange={setName} required />
+        <TextField label="Email" value={email} onChange={setEmail} required />
         <RoleSelect value={role} onChange={setRole} />
         <ToggleField label="Active" checked={isActive} onChange={setIsActive} />
         <StatusMessage state={state} error={error} />
@@ -287,19 +316,20 @@ function ChangePasswordModal({ user, onClose }: { user: UserRow; onClose: () => 
   const [confirmPassword, setConfirmPassword] = useState("");
   const [state, setState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<PasswordFieldErrors>({});
 
   async function handleChangePassword() {
-    if (password.length < 8) {
+    const nextFieldErrors: PasswordFieldErrors = {};
+    if (password.length < 8) nextFieldErrors.password = "Password must be at least 8 characters.";
+    if (password !== confirmPassword) nextFieldErrors.confirmPassword = "Passwords do not match.";
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
       setState("error");
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setState("error");
-      setError("Passwords do not match.");
+      setError("Please fix the highlighted fields.");
       return;
     }
 
+    setFieldErrors({});
     setState("saving");
     setError(null);
     try {
@@ -321,8 +351,27 @@ function ChangePasswordModal({ user, onClose }: { user: UserRow; onClose: () => 
   return (
     <Modal title={`Change password — ${user.name}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <PasswordInput label="New password" value={password} onChange={setPassword} placeholder="Min. 8 characters" />
-        <PasswordInput label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} />
+        <PasswordInput
+          label="New password"
+          value={password}
+          onChange={(v) => {
+            setPassword(v);
+            setFieldErrors((prev) => (prev.password ? { ...prev, password: undefined } : prev));
+          }}
+          placeholder="Min. 8 characters"
+          required
+          error={fieldErrors.password}
+        />
+        <PasswordInput
+          label="Confirm password"
+          value={confirmPassword}
+          onChange={(v) => {
+            setConfirmPassword(v);
+            setFieldErrors((prev) => (prev.confirmPassword ? { ...prev, confirmPassword: undefined } : prev));
+          }}
+          required
+          error={fieldErrors.confirmPassword}
+        />
         <StatusMessage state={state} error={error} />
         <div className="flex justify-end gap-2">
           <IconButton label="Cancel" onClick={onClose} />
@@ -410,26 +459,26 @@ export function UsersManager({ currentUserId }: { currentUserId: string | null }
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-fg">Users</h1>
-          <p className="mt-1 text-sm text-muted">
+          <h1 className="text-admin-h1 font-semibold text-admin-text">Users</h1>
+          <p className="mt-1 text-admin-body text-admin-text-2">
             Manage who can sign in to this dashboard and what they can do. Only owners can see this page.
           </p>
         </div>
         <CreateUserPanel onCreated={upsertUser} />
       </div>
 
-      {loadState === "loading" && <p className="text-sm text-muted">Loading users…</p>}
+      {loadState === "loading" && <p className="text-admin-body text-admin-text-2">Loading users…</p>}
       {loadState === "error" && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p role="alert" className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
           {loadError}
         </p>
       )}
 
       {loadState === "ready" && (
-        <div className="overflow-x-auto rounded-2xl border border-line glass">
-          <table className="w-full min-w-[720px] text-left text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-admin-border glass">
+          <table className="w-full min-w-[720px] text-left text-admin-body">
             <thead>
-              <tr className="border-b border-line text-xs uppercase tracking-wide text-muted/60">
+              <tr className="border-b border-admin-border text-admin-caption uppercase tracking-wide text-admin-text-3">
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Role</th>
@@ -446,20 +495,20 @@ export function UsersManager({ currentUserId }: { currentUserId: string | null }
                 const busy = busyId === user.id;
 
                 return (
-                  <tr key={user.id} className="border-b border-line/60 last:border-b-0">
-                    <td className="px-4 py-3 font-medium text-fg">
+                  <tr key={user.id} className="border-b border-admin-border last:border-b-0">
+                    <td className="px-4 py-3 font-medium text-admin-text">
                       {user.name}
-                      {isSelf && <span className="ml-2 text-xs text-muted">(you)</span>}
+                      {isSelf && <span className="ml-2 text-admin-caption text-admin-text-3">(you)</span>}
                     </td>
-                    <td className="px-4 py-3 text-muted">{user.email}</td>
+                    <td className="px-4 py-3 text-admin-text-2">{user.email}</td>
                     <td className="px-4 py-3">
                       <RoleBadge role={user.role} />
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge isActive={user.is_active} />
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted">{formatDateTime(user.last_login_at)}</td>
-                    <td className="px-4 py-3 text-xs text-muted">{formatDate(user.created_at)}</td>
+                    <td className="px-4 py-3 text-admin-caption text-admin-text-3">{formatDateTime(user.last_login_at)}</td>
+                    <td className="px-4 py-3 text-admin-caption text-admin-text-3">{formatDate(user.created_at)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
                         <IconButton label="Edit" onClick={() => setEditingUser(user)} />
@@ -474,15 +523,15 @@ export function UsersManager({ currentUserId }: { currentUserId: string | null }
                           onClick={() => deleteUser(user)}
                         />
                       </div>
-                      {busy && <p className="mt-1.5 text-xs text-muted">Working…</p>}
+                      {busy && <p className="mt-1.5 text-admin-caption text-admin-text-3">Working…</p>}
                       {(isSelf || isLastActiveOwner) && (
-                        <p className="mt-1.5 text-xs text-muted/70">
+                        <p className="mt-1.5 text-admin-caption text-admin-text-3">
                           {isSelf ? "You can't delete your own account. " : ""}
                           {isLastActiveOwner ? "Last active owner — can't be demoted/deactivated/deleted." : ""}
                         </p>
                       )}
                       {rowError?.id === user.id && (
-                        <p className="mt-1.5 text-xs text-red-400">{rowError.message}</p>
+                        <p role="alert" className="mt-1.5 text-admin-caption text-admin-danger">{rowError.message}</p>
                       )}
                     </td>
                   </tr>
@@ -491,7 +540,7 @@ export function UsersManager({ currentUserId }: { currentUserId: string | null }
             </tbody>
           </table>
           {users.length === 0 && (
-            <p className="px-4 py-10 text-center text-sm text-muted">No users yet — create the first one above.</p>
+            <p className="px-4 py-10 text-center text-admin-body text-admin-text-2">No users yet — create the first one above.</p>
           )}
         </div>
       )}

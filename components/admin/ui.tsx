@@ -1,11 +1,41 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 const inputCls =
   "w-full rounded-xl border border-admin-border bg-admin-surface px-4 py-2.5 text-admin-body text-admin-text placeholder:text-admin-text-3 outline-none transition-colors duration-200 ease-admin focus:border-admin-accent/50 focus:bg-admin-surface-2 focus:ring-1 focus:ring-admin-accent/20";
+const inputErrorCls = "border-admin-danger/50 focus:border-admin-danger/60 focus:ring-admin-danger/20";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
+
+/** Inline field error — rendered under a field and wired via aria-describedby
+ * from the input itself, so screen readers announce it as part of the field,
+ * not just a floating paragraph. */
+function FieldError({ id, message }: { id: string; message: string }) {
+  return (
+    <p id={id} role="alert" className="text-admin-caption text-admin-danger">
+      {message}
+    </p>
+  );
+}
+
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="text-admin-danger">
+      {" "}*
+    </span>
+  );
+}
 
 export function Panel({
   title,
@@ -38,24 +68,36 @@ export function TextField({
   onChange,
   placeholder,
   maxLength,
+  required,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   maxLength?: number;
+  required?: boolean;
+  error?: string | null;
 }) {
+  const errorId = useId();
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-admin-label font-medium text-admin-text-2">{label}</span>
+      <span className="text-admin-label font-medium text-admin-text-2">
+        {label}
+        {required && <RequiredMark />}
+      </span>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
-        className={inputCls}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`${inputCls} ${error ? inputErrorCls : ""}`}
       />
+      {error && <FieldError id={errorId} message={error} />}
     </label>
   );
 }
@@ -105,6 +147,7 @@ export function PasswordInput({
   autoComplete = "new-password",
   disabled,
   className = "",
+  error,
 }: {
   label?: string;
   value: string;
@@ -116,8 +159,10 @@ export function PasswordInput({
   autoComplete?: string;
   disabled?: boolean;
   className?: string;
+  error?: string | null;
 }) {
   const [visible, setVisible] = useState(false);
+  const errorId = useId();
 
   const field = (
     <div className="relative">
@@ -131,7 +176,9 @@ export function PasswordInput({
         required={required}
         autoComplete={autoComplete}
         disabled={disabled}
-        className={`${inputCls} pr-11 ${className}`}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`${inputCls} pr-11 ${error ? inputErrorCls : ""} ${className}`}
       />
       <button
         type="button"
@@ -146,12 +193,25 @@ export function PasswordInput({
     </div>
   );
 
-  if (!label) return field;
+  const errorNode = error && <FieldError id={errorId} message={error} />;
+
+  if (!label) {
+    return (
+      <>
+        {field}
+        {errorNode}
+      </>
+    );
+  }
 
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-admin-label font-medium text-admin-text-2">{label}</span>
+      <span className="text-admin-label font-medium text-admin-text-2">
+        {label}
+        {required && <RequiredMark />}
+      </span>
       {field}
+      {errorNode}
     </label>
   );
 }
@@ -162,23 +222,35 @@ export function TextAreaField({
   onChange,
   rows = 3,
   placeholder,
+  required,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   rows?: number;
   placeholder?: string;
+  required?: boolean;
+  error?: string | null;
 }) {
+  const errorId = useId();
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-admin-label font-medium text-admin-text-2">{label}</span>
+      <span className="text-admin-label font-medium text-admin-text-2">
+        {label}
+        {required && <RequiredMark />}
+      </span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className={`${inputCls} resize-none`}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`${inputCls} resize-none ${error ? inputErrorCls : ""}`}
       />
+      {error && <FieldError id={errorId} message={error} />}
     </label>
   );
 }
@@ -229,10 +301,16 @@ export function SaveButton({
   state,
   label = "Save changes",
   onClick,
+  disabled,
 }: {
   state: SaveState;
   label?: string;
   onClick?: () => void;
+  /** Optional extra disable condition on top of the built-in "saving" lock —
+   * e.g. pass `!isDirty` so there's nothing to click when nothing changed, or
+   * a validation-failed flag. Existing callers that don't pass this keep
+   * their exact current behavior (only disabled while saving). */
+  disabled?: boolean;
 }) {
   const text = state === "saving" ? "Saving…" : state === "saved" ? "Saved ✓" : label;
 
@@ -240,7 +318,7 @@ export function SaveButton({
     <button
       type="button"
       onClick={onClick}
-      disabled={state === "saving"}
+      disabled={state === "saving" || disabled}
       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-neon to-neon-soft px-5 py-2 text-admin-label font-semibold text-ink shadow-[0_10px_40px_-10px_rgba(13,253,209,0.55)] transition-shadow duration-200 ease-admin hover:shadow-[0_14px_50px_-8px_rgba(13,253,209,0.75)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-bg disabled:cursor-not-allowed disabled:opacity-70 sm:px-6 sm:py-2.5 sm:text-admin-body"
     >
       {text}
@@ -298,5 +376,209 @@ export function IconButton({
     >
       {label}
     </button>
+  );
+}
+
+// ── Reorderable list support ─────────────────────────────────────────────────
+// Shared by RepeatableFields.tsx and any editor with a locally-defined
+// repeatable-row component (HomepageEditor, BookConsultationEditor) so the
+// move-up/down + drag logic exists in exactly one place.
+
+export function arrayMove<T>(arr: readonly T[], from: number, to: number): T[] {
+  if (to < 0 || to >= arr.length || from === to) return [...arr];
+  const copy = [...arr];
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
+
+/**
+ * None of the repeatable-list item shapes in this app carry a persisted
+ * unique id (they're plain `{title, text}`-style objects) — every render
+ * would otherwise fall back to index-as-key, which is exactly what breaks
+ * during a reorder (React reattaches a moved DOM node's state — including a
+ * child MediaUploader's own in-flight upload state — to whichever index it
+ * now occupies, not to the logical item that moved). This generates a
+ * synthetic id per item, kept in lockstep with the array by the add/remove/
+ * move handlers below rather than recomputed from content.
+ */
+export function useStableIds(count: number): string[] {
+  const [ids, setIds] = useState<string[]>(() => Array.from({ length: count }, () => crypto.randomUUID()));
+  if (ids.length !== count) {
+    if (ids.length < count) {
+      setIds([...ids, ...Array.from({ length: count - ids.length }, () => crypto.randomUUID())]);
+    } else {
+      setIds(ids.slice(0, count));
+    }
+  }
+  return ids;
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+      <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+      <circle cx="9" cy="6" r="1.4" />
+      <circle cx="15" cy="6" r="1.4" />
+      <circle cx="9" cy="12" r="1.4" />
+      <circle cx="15" cy="12" r="1.4" />
+      <circle cx="9" cy="18" r="1.4" />
+      <circle cx="15" cy="18" r="1.4" />
+    </svg>
+  );
+}
+
+/**
+ * Move-up/move-down wiring for a reorderable array — independent of how the
+ * move is triggered (button click or a completed drag). One instance per
+ * rendered list.
+ */
+export function useReorder<T>(items: T[], onChange: (items: T[]) => void) {
+  function moveTo(from: number, to: number) {
+    if (to < 0 || to >= items.length) return;
+    onChange(arrayMove(items, from, to));
+  }
+
+  return { moveTo };
+}
+
+/**
+ * Root cause of the original native-HTML5-drag implementation: dragover/drop
+ * were bound only to the ~24×28px grip icon itself, so completing a drop
+ * required releasing the pointer precisely on another row's equally tiny
+ * grip — nearly impossible with a real mouse/trackpad, even though the event
+ * wiring (preventDefault, drop handler, etc.) was technically correct. A
+ * synthetic dragstart/dragover/drop dispatched directly at the target DOM
+ * node sidesteps that precision requirement entirely, which is why it
+ * appeared to work in automated testing but not for a real user.
+ *
+ * Native HTML5 drag-and-drop's cross-browser reliability (especially
+ * Safari's long-standing quirks around custom drag images and dragover
+ * firing) makes it a poor foundation to patch further, so the actual drag
+ * interaction now uses @dnd-kit — pointer-based, not the native browser drag
+ * session, with a much larger/forgiving drop-target (the whole row via
+ * closestCenter collision detection, not one 6×7px icon). The move-up/down
+ * buttons above are untouched: they never depended on native drag events.
+ */
+export function SortableList({
+  ids,
+  onReorder,
+  children,
+}: {
+  /** Stable ids (from useStableIds), same order as the rendered items. */
+  ids: string[];
+  onReorder: (oldIndex: number, newIndex: number) => void;
+  children: ReactNode;
+}) {
+  const sensors = useSensors(
+    // A small activation distance so clicking the handle (e.g. via a
+    // keyboard-triggered synthetic click, or an imprecise tap) doesn't
+    // immediately start a drag — real dragging still feels instant.
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    onReorder(oldIndex, newIndex);
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+// There is deliberately no shared `useSortableRow` wrapper hook here. An
+// earlier version wrapped @dnd-kit/sortable's useSortable() in a custom hook
+// returning { setNodeRef, style, handleProps, ... }, but eslint-plugin-
+// react-hooks's newer React-Compiler-derived `refs` rule cannot trace
+// ref-safety through an intermediate custom hook layer — it flagged every
+// property read off the wrapper's return value as an unsafe ref access
+// during render, even though setNodeRef is a plain callback (not a ref
+// being dereferenced). Calling useSortable() directly inside each row
+// component — the pattern dnd-kit's own docs use — avoids the false
+// positive entirely. See RepeatableFields.tsx's Row, HomepageEditor.tsx's
+// RepeatableCard, and BookConsultationEditor.tsx's SortableRow for the
+// (small, ~10-line) inlined version each one uses.
+
+/**
+ * Move-up/move-down buttons — the primary, always-available, keyboard- and
+ * touch-accessible way to reorder — plus a drag handle (dnd-kit-powered, see
+ * SortableList/useSortableRow above) as a pointer enhancement on top. The
+ * buttons alone fully satisfy reordering with no drag at all.
+ */
+export function ReorderControls({
+  label,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+  handleProps,
+}: {
+  /** Item name announced in the button's accessible label, e.g. "step 2". */
+  label: string;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  handleProps?: React.HTMLAttributes<HTMLSpanElement>;
+}) {
+  const dragHandle = handleProps && (
+    <span
+      {...handleProps}
+      aria-hidden="true"
+      title="Drag to reorder"
+      style={{ touchAction: "none" }}
+      className="flex h-7 w-6 shrink-0 cursor-grab select-none items-center justify-center rounded text-admin-text-3 transition-colors duration-200 ease-admin hover:text-admin-text active:cursor-grabbing"
+    >
+      <GripIcon />
+    </span>
+  );
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {dragHandle}
+      <button
+        type="button"
+        onClick={onMoveUp}
+        disabled={!canMoveUp}
+        aria-label={`Move ${label} up`}
+        className="flex h-7 w-7 items-center justify-center rounded text-admin-text-3 transition-colors duration-200 ease-admin hover:bg-admin-surface-2 hover:text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+      >
+        <ChevronUpIcon />
+      </button>
+      <button
+        type="button"
+        onClick={onMoveDown}
+        disabled={!canMoveDown}
+        aria-label={`Move ${label} down`}
+        className="flex h-7 w-7 items-center justify-center rounded text-admin-text-3 transition-colors duration-200 ease-admin hover:bg-admin-surface-2 hover:text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+      >
+        <ChevronDownIcon />
+      </button>
+    </div>
   );
 }

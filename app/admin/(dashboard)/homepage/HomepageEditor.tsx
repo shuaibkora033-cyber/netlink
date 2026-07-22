@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { HomepageContent, Stat, GrowthStep, FinalCta } from "@/lib/data/homepage";
 import {
   Panel,
@@ -10,6 +12,11 @@ import {
   StatusMessage,
   UnsavedBadge,
   IconButton,
+  ReorderControls,
+  SortableList,
+  useStableIds,
+  useReorder,
+  arrayMove,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -71,11 +78,52 @@ function buildSections(content: HomepageContent): Sections {
   };
 }
 
-function RepeatableCard({ onRemove, children }: { onRemove: () => void; children: ReactNode }) {
+// `reorder` is required, not optional — all three lists this renders
+// (stats, growthSteps, finalCta.bullets) are order-sensitive on the public
+// site, so it's always passed. Keeping it required lets useSortable be
+// called unconditionally below (rules of hooks). useSortable is called
+// directly here rather than through a shared wrapper hook — see ui.tsx's
+// note above the removed useSortableRow for why (a React Compiler lint
+// false positive with wrapped ref-setters).
+function RepeatableCard({
+  onRemove,
+  reorder,
+  children,
+}: {
+  onRemove: () => void;
+  reorder: {
+    label: string;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    id: string;
+  };
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reorder.id });
   return (
-    <div className="rounded-xl border border-line bg-white/[0.02] p-4">
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+        zIndex: isDragging ? 10 : undefined,
+        position: "relative",
+      }}
+      className={`rounded-xl border border-admin-border bg-admin-surface p-4 ${isDragging ? "select-none" : ""}`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">{children}</div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex items-center justify-between">
+        <ReorderControls
+          label={reorder.label}
+          onMoveUp={reorder.onMoveUp}
+          onMoveDown={reorder.onMoveDown}
+          canMoveUp={reorder.canMoveUp}
+          canMoveDown={reorder.canMoveDown}
+          handleProps={{ ...attributes, ...listeners }}
+        />
         <IconButton label="Remove" variant="danger" onClick={onRemove} />
       </div>
     </div>
@@ -135,6 +183,26 @@ export function HomepageEditor() {
     setSections((prev) => (prev ? { ...prev, [key]: { ...prev[key], data } } : prev));
   }
 
+  // Hooks run unconditionally on every render (rules of hooks) — the loading/
+  // error early-returns below happen after these, so safe empty-array
+  // fallbacks are used until `sections` resolves. The reorder handlers can't
+  // actually fire before then anyway, since the panels that call them don't
+  // render until after the early return.
+  const statsData = sections?.stats.data ?? [];
+  const statsIds = useStableIds(statsData.length);
+  const statsReorder = useReorder(statsData, (next) => updateSection("stats", next));
+
+  const growthStepsData = sections?.growthSteps.data ?? [];
+  const growthStepsIds = useStableIds(growthStepsData.length);
+  const growthStepsReorder = useReorder(growthStepsData, (next) => updateSection("growthSteps", next));
+
+  const bulletsData = sections?.finalCta.data.bullets ?? [];
+  const bulletsIds = useStableIds(bulletsData.length);
+  const bulletsReorder = useReorder(bulletsData, (next) => {
+    if (!sections) return;
+    updateSection("finalCta", { ...sections.finalCta.data, bullets: next });
+  });
+
   async function saveSection<K extends SectionKey>(key: K) {
     if (!sections) return;
     const section = sections[key];
@@ -181,11 +249,11 @@ export function HomepageEditor() {
   }
 
   if (loadState === "loading") {
-    return <p className="text-sm text-muted">Loading homepage content…</p>;
+    return <p className="text-admin-body text-admin-text-2">Loading homepage content…</p>;
   }
   if (loadState === "error" || !sections) {
     return (
-      <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+      <p className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
         {loadError || "Could not load homepage content."}
       </p>
     );
@@ -199,17 +267,17 @@ export function HomepageEditor() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-fg">Homepage</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-admin-h1 font-semibold text-admin-text">Homepage</h1>
+        <p className="mt-1 text-admin-body text-admin-text-2">
           Each section below saves independently — saving one section never touches the others.
           Industries live under Content › Industries; case studies live under Content › Case
           Studies — both are shared with other pages, so they&apos;re edited from one place.
         </p>
       </div>
 
-      <section className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-5 sm:p-7">
-        <h2 className="text-base font-semibold text-fg">Reset to Netlink&apos;s new defaults</h2>
-        <p className="mt-1 text-sm text-muted">
+      <section className="rounded-2xl border border-admin-warning/20 bg-admin-warning/[0.04] p-5 sm:p-7">
+        <h2 className="text-admin-subhead font-semibold text-admin-text">Reset to Netlink&apos;s new defaults</h2>
+        <p className="mt-1 text-admin-body text-admin-text-2">
           Overwrites every section below, all case studies, and the shared industries list with
           the current lead-generation positioning from the codebase. Use this once to push the
           new copy live instead of re-typing each section — review the sections afterward and
@@ -276,43 +344,56 @@ export function HomepageEditor() {
           </div>
         }
       >
-        {stats.data.map((s, i) => (
-          <RepeatableCard key={i} onRemove={() => updateSection("stats", stats.data.filter((_, idx) => idx !== i))}>
-            <div className="sm:w-24">
-              <TextField
-                label="Value"
-                value={String(s.value)}
-                onChange={(v) => {
-                  const next = [...stats.data];
-                  next[i] = { ...next[i], value: Number(v) || 0 };
-                  updateSection("stats", next);
-                }}
-              />
-            </div>
-            <div className="sm:w-24">
-              <TextField
-                label="Suffix"
-                value={s.suffix}
-                onChange={(v) => {
-                  const next = [...stats.data];
-                  next[i] = { ...next[i], suffix: v };
-                  updateSection("stats", next);
-                }}
-              />
-            </div>
-            <div className="flex-1">
-              <TextField
-                label="Label"
-                value={s.label}
-                onChange={(v) => {
-                  const next = [...stats.data];
-                  next[i] = { ...next[i], label: v };
-                  updateSection("stats", next);
-                }}
-              />
-            </div>
-          </RepeatableCard>
-        ))}
+        <SortableList ids={statsIds} onReorder={(from, to) => updateSection("stats", arrayMove(stats.data, from, to))}>
+          {stats.data.map((s, i) => (
+            <RepeatableCard
+              key={statsIds[i]}
+              onRemove={() => updateSection("stats", stats.data.filter((_, idx) => idx !== i))}
+              reorder={{
+                id: statsIds[i],
+                label: `stat ${i + 1}`,
+                onMoveUp: () => statsReorder.moveTo(i, i - 1),
+                onMoveDown: () => statsReorder.moveTo(i, i + 1),
+                canMoveUp: i > 0,
+                canMoveDown: i < stats.data.length - 1,
+              }}
+            >
+              <div className="sm:w-24">
+                <TextField
+                  label="Value"
+                  value={String(s.value)}
+                  onChange={(v) => {
+                    const next = [...stats.data];
+                    next[i] = { ...next[i], value: Number(v) || 0 };
+                    updateSection("stats", next);
+                  }}
+                />
+              </div>
+              <div className="sm:w-24">
+                <TextField
+                  label="Suffix"
+                  value={s.suffix}
+                  onChange={(v) => {
+                    const next = [...stats.data];
+                    next[i] = { ...next[i], suffix: v };
+                    updateSection("stats", next);
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <TextField
+                  label="Label"
+                  value={s.label}
+                  onChange={(v) => {
+                    const next = [...stats.data];
+                    next[i] = { ...next[i], label: v };
+                    updateSection("stats", next);
+                  }}
+                />
+              </div>
+            </RepeatableCard>
+          ))}
+        </SortableList>
         <IconButton label="+ Add stat" onClick={() => updateSection("stats", [...stats.data, { value: 0, suffix: "", label: "" }])} />
         <StatusMessage state={stats.saveState} error={stats.error} />
       </Panel>
@@ -332,47 +413,60 @@ export function HomepageEditor() {
           </div>
         }
       >
-        {growthSteps.data.map((step, i) => (
-          <RepeatableCard
-            key={i}
-            onRemove={() => updateSection("growthSteps", growthSteps.data.filter((_, idx) => idx !== i))}
-          >
-            <div className="sm:w-16">
-              <TextField
-                label="No."
-                value={step.num}
-                onChange={(v) => {
-                  const next = [...growthSteps.data];
-                  next[i] = { ...next[i], num: v };
-                  updateSection("growthSteps", next);
-                }}
-              />
-            </div>
-            <div className="sm:w-40">
-              <TextField
-                label="Title"
-                value={step.title}
-                onChange={(v) => {
-                  const next = [...growthSteps.data];
-                  next[i] = { ...next[i], title: v };
-                  updateSection("growthSteps", next);
-                }}
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <TextAreaField
-                label="Description"
-                value={step.text}
-                rows={2}
-                onChange={(v) => {
-                  const next = [...growthSteps.data];
-                  next[i] = { ...next[i], text: v };
-                  updateSection("growthSteps", next);
-                }}
-              />
-            </div>
-          </RepeatableCard>
-        ))}
+        <SortableList
+          ids={growthStepsIds}
+          onReorder={(from, to) => updateSection("growthSteps", arrayMove(growthSteps.data, from, to))}
+        >
+          {growthSteps.data.map((step, i) => (
+            <RepeatableCard
+              key={growthStepsIds[i]}
+              onRemove={() => updateSection("growthSteps", growthSteps.data.filter((_, idx) => idx !== i))}
+              reorder={{
+                id: growthStepsIds[i],
+                label: `growth step ${i + 1}`,
+                onMoveUp: () => growthStepsReorder.moveTo(i, i - 1),
+                onMoveDown: () => growthStepsReorder.moveTo(i, i + 1),
+                canMoveUp: i > 0,
+                canMoveDown: i < growthSteps.data.length - 1,
+              }}
+            >
+              <div className="sm:w-16">
+                <TextField
+                  label="No."
+                  value={step.num}
+                  onChange={(v) => {
+                    const next = [...growthSteps.data];
+                    next[i] = { ...next[i], num: v };
+                    updateSection("growthSteps", next);
+                  }}
+                />
+              </div>
+              <div className="sm:w-40">
+                <TextField
+                  label="Title"
+                  value={step.title}
+                  onChange={(v) => {
+                    const next = [...growthSteps.data];
+                    next[i] = { ...next[i], title: v };
+                    updateSection("growthSteps", next);
+                  }}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <TextAreaField
+                  label="Description"
+                  value={step.text}
+                  rows={2}
+                  onChange={(v) => {
+                    const next = [...growthSteps.data];
+                    next[i] = { ...next[i], text: v };
+                    updateSection("growthSteps", next);
+                  }}
+                />
+              </div>
+            </RepeatableCard>
+          ))}
+        </SortableList>
         <IconButton
           label="+ Add step"
           onClick={() =>
@@ -404,29 +498,42 @@ export function HomepageEditor() {
         <TextField label="Title" value={finalCta.data.title} onChange={(v) => updateSection("finalCta", { ...finalCta.data, title: v })} />
         <TextAreaField label="Text" rows={3} value={finalCta.data.text} onChange={(v) => updateSection("finalCta", { ...finalCta.data, text: v })} />
 
-        {finalCta.data.bullets.map((b, i) => (
-          <RepeatableCard
-            key={i}
-            onRemove={() =>
-              updateSection("finalCta", {
-                ...finalCta.data,
-                bullets: finalCta.data.bullets.filter((_, idx) => idx !== i),
-              })
-            }
-          >
-            <div className="flex-1">
-              <TextField
-                label={`Bullet ${i + 1}`}
-                value={b}
-                onChange={(v) => {
-                  const next = [...finalCta.data.bullets];
-                  next[i] = v;
-                  updateSection("finalCta", { ...finalCta.data, bullets: next });
-                }}
-              />
-            </div>
-          </RepeatableCard>
-        ))}
+        <SortableList
+          ids={bulletsIds}
+          onReorder={(from, to) => updateSection("finalCta", { ...finalCta.data, bullets: arrayMove(finalCta.data.bullets, from, to) })}
+        >
+          {finalCta.data.bullets.map((b, i) => (
+            <RepeatableCard
+              key={bulletsIds[i]}
+              onRemove={() =>
+                updateSection("finalCta", {
+                  ...finalCta.data,
+                  bullets: finalCta.data.bullets.filter((_, idx) => idx !== i),
+                })
+              }
+              reorder={{
+                id: bulletsIds[i],
+                label: `bullet ${i + 1}`,
+                onMoveUp: () => bulletsReorder.moveTo(i, i - 1),
+                onMoveDown: () => bulletsReorder.moveTo(i, i + 1),
+                canMoveUp: i > 0,
+                canMoveDown: i < finalCta.data.bullets.length - 1,
+              }}
+            >
+              <div className="flex-1">
+                <TextField
+                  label={`Bullet ${i + 1}`}
+                  value={b}
+                  onChange={(v) => {
+                    const next = [...finalCta.data.bullets];
+                    next[i] = v;
+                    updateSection("finalCta", { ...finalCta.data, bullets: next });
+                  }}
+                />
+              </div>
+            </RepeatableCard>
+          ))}
+        </SortableList>
         <IconButton
           label="+ Add bullet"
           onClick={() => updateSection("finalCta", { ...finalCta.data, bullets: [...finalCta.data.bullets, ""] })}

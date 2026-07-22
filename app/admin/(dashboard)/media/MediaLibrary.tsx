@@ -55,8 +55,8 @@ function MediaCard({ item, onDeleted }: { item: MediaItem; onDeleted: (path: str
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white/[0.02]">
-      <div className="aspect-video w-full overflow-hidden bg-charcoal">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-admin-border bg-admin-surface">
+      <div className="aspect-video w-full overflow-hidden bg-admin-bg">
         {isVideoItem(item) ? (
           <video src={item.url} controls className="h-full w-full object-cover" />
         ) : (
@@ -65,15 +65,15 @@ function MediaCard({ item, onDeleted }: { item: MediaItem; onDeleted: (path: str
         )}
       </div>
       <div className="flex flex-col gap-1 p-3">
-        <p className="truncate text-xs font-medium text-fg" title={item.name}>{item.name}</p>
-        <p className="text-[0.65rem] text-muted">
+        <p className="truncate text-admin-label font-medium text-admin-text" title={item.name}>{item.name}</p>
+        <p className="text-admin-caption text-admin-text-3">
           {item.folder} · {item.mimeType ?? "unknown"} · {formatBytes(item.size)} · {formatDate(item.createdAt)}
         </p>
         <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
             onClick={copyUrl}
-            className="flex-1 rounded-lg border border-line px-2.5 py-1.5 text-[0.7rem] text-muted transition-colors hover:border-neon/30 hover:text-neon"
+            className="flex-1 rounded-lg border border-admin-border px-2.5 py-1.5 text-admin-caption text-admin-text-2 transition-colors duration-200 ease-admin hover:border-admin-accent/30 hover:text-admin-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40"
           >
             {copied ? "Copied" : "Copy URL"}
           </button>
@@ -81,7 +81,7 @@ function MediaCard({ item, onDeleted }: { item: MediaItem; onDeleted: (path: str
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-[0.7rem] text-muted transition-colors hover:border-red-500/30 hover:text-red-400 disabled:opacity-50"
+            className="rounded-lg border border-admin-border px-2.5 py-1.5 text-admin-caption text-admin-text-2 transition-colors duration-200 ease-admin hover:border-admin-danger/30 hover:text-admin-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 disabled:opacity-50"
           >
             {deleting ? "…" : "Delete"}
           </button>
@@ -145,22 +145,22 @@ export function MediaLibrary() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-fg">Media</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-admin-h1 font-semibold text-admin-text">Media</h1>
+        <p className="mt-1 text-admin-body text-admin-text-2">
           Upload images and videos to Supabase Storage, then copy their URL into any content
           field across the site.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-line glass p-5 sm:p-7">
-        <h2 className="text-sm font-semibold text-fg">Upload new file</h2>
+      <div className="rounded-2xl border border-admin-border glass p-5 sm:p-7">
+        <h2 className="text-admin-subhead font-semibold text-admin-text">Upload new file</h2>
         <div className="mt-4 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted">Folder</span>
+            <span className="text-admin-label font-medium text-admin-text-2">Folder</span>
             <select
               value={uploadFolder}
               onChange={(e) => setUploadFolder(e.target.value as StorageFolder)}
-              className="w-full cursor-pointer rounded-xl border border-line bg-white/[0.03] px-4 py-2.5 text-sm text-fg outline-none transition-all duration-200 focus:border-neon/50 sm:w-auto"
+              className="w-full cursor-pointer rounded-xl border border-admin-border bg-admin-surface px-4 py-2.5 text-admin-body text-admin-text outline-none transition-colors duration-200 ease-admin focus:border-admin-accent/50 sm:w-auto"
             >
               {STORAGE_FOLDERS.map((f) => (
                 <option key={f} value={f}>{f}</option>
@@ -177,10 +177,10 @@ export function MediaLibrary() {
             key={f}
             type="button"
             onClick={() => setTypeFilter(f)}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition-colors ${
+            className={`rounded-full border px-3.5 py-1.5 text-admin-label font-medium capitalize transition-colors duration-200 ease-admin focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 ${
               typeFilter === f
-                ? "border-neon/40 bg-neon/10 text-neon"
-                : "border-line bg-white/[0.02] text-muted hover:text-fg"
+                ? "border-admin-accent/40 bg-admin-accent/10 text-admin-accent"
+                : "border-admin-border bg-admin-surface text-admin-text-2 hover:text-admin-text"
             }`}
           >
             {f === "all" ? "All" : `${f}s`}
@@ -188,14 +188,14 @@ export function MediaLibrary() {
         ))}
       </div>
 
-      {loadState === "loading" && <p className="text-sm text-muted">Loading media…</p>}
+      {loadState === "loading" && <p className="text-admin-body text-admin-text-2">Loading media…</p>}
       {loadState === "error" && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p role="alert" className="rounded-lg border border-admin-danger/30 bg-admin-danger/10 px-3 py-2 text-admin-body text-admin-danger">
           Could not load media.
         </p>
       )}
       {loadState === "ready" && filtered.length === 0 && (
-        <p className="rounded-2xl border border-dashed border-line px-6 py-16 text-center text-sm text-muted">
+        <p className="rounded-2xl border border-dashed border-admin-border px-6 py-16 text-center text-admin-body text-admin-text-2">
           No media uploaded yet.
         </p>
       )}

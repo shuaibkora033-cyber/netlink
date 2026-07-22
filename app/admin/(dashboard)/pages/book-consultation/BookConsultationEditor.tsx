@@ -1,5 +1,7 @@
 "use client";
 
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { bookConsultationPage } from "@/lib/content";
 import { proofGuarantees, proofVideo, proofFeedback, trustSteps } from "@/lib/proof";
 import { LEAD_OPTION_GROUPS, type LeadOptionFieldKey, type OptionLabelOverrides } from "@/lib/leads";
@@ -16,6 +18,11 @@ import {
   StatusMessage,
   UnsavedBadge,
   IconButton,
+  ReorderControls,
+  SortableList,
+  useStableIds,
+  useReorder,
+  arrayMove,
   type SaveState,
 } from "@/components/admin/ui";
 
@@ -169,9 +176,72 @@ const FALLBACKS = {
 // ── Small local repeatable-row helpers (need MediaUploader / toggle combos
 // the shared RepeatableFields.tsx primitives don't cover) ───────────────────
 
-function Row({ onRemove, children }: { onRemove: () => void; children: React.ReactNode }) {
+// Two variants instead of one Row with an optional `reorder` — conditionally
+// calling useSortable inside a single shared component based on a prop
+// would be a rules-of-hooks risk lint can't verify is safe, even though it
+// happens to be stable per call site today. Splitting by call site (some
+// panels always reorderable, FeedbackUgcPanel never) keeps each component's
+// hook usage unconditional and lint-provably correct.
+//
+// useSortable is called directly here (not through a shared wrapper hook)
+// because eslint-plugin-react-hooks's React-Compiler-derived `refs` rule
+// cannot trace ref-safety through an intermediate custom hook that returns
+// a ref setter — it flagged every property read off a wrapper's return
+// value as an unsafe ref access during render. Calling useSortable() inline
+// in each row component (the pattern dnd-kit's own docs use) avoids that
+// false positive. Same ~10-line inline block as RepeatableFields.tsx's Row
+// and HomepageEditor.tsx's RepeatableCard.
+
+function SortableRow({
+  onRemove,
+  reorder,
+  children,
+}: {
+  onRemove: () => void;
+  reorder: {
+    label: string;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    id: string;
+  };
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reorder.id });
   return (
-    <div className="rounded-xl border border-line bg-white/[0.02] p-4">
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+        zIndex: isDragging ? 10 : undefined,
+        position: "relative",
+      }}
+      className={`rounded-xl border border-admin-border bg-admin-surface p-4 ${isDragging ? "select-none" : ""}`}
+    >
+      <div className="flex flex-col gap-3">{children}</div>
+      <div className="mt-3 flex items-center justify-between">
+        <ReorderControls
+          label={reorder.label}
+          onMoveUp={reorder.onMoveUp}
+          onMoveDown={reorder.onMoveDown}
+          canMoveUp={reorder.canMoveUp}
+          canMoveDown={reorder.canMoveDown}
+          handleProps={{ ...attributes, ...listeners }}
+        />
+        <IconButton label="Remove" variant="danger" onClick={onRemove} />
+      </div>
+    </div>
+  );
+}
+
+/** Non-reorderable card — used only by FeedbackUgcPanel, whose items are
+ * sorted by "pinned" on the public page, not by array order. */
+function PlainRow({ onRemove, children }: { onRemove: () => void; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-admin-border bg-admin-surface p-4">
       <div className="flex flex-col gap-3">{children}</div>
       <div className="mt-3 flex justify-end">
         <IconButton label="Remove" variant="danger" onClick={onRemove} />
@@ -245,6 +315,8 @@ function HeroPanel({ section, onChange, onSave }: { section: SectionState<HeroCo
 
 function WhatToExpectPanel({ section, onChange, onSave }: { section: SectionState<WhatToExpectContent>; onChange: (v: WhatToExpectContent) => void; onSave: () => void }) {
   const data = section.data;
+  const stepIds = useStableIds(data.steps.length);
+  const stepsReorder = useReorder(data.steps, (steps) => onChange({ ...data, steps }));
   return (
     <Panel
       title="What To Expect"
@@ -257,28 +329,41 @@ function WhatToExpectPanel({ section, onChange, onSave }: { section: SectionStat
 
       <div className="flex flex-col gap-3">
         <span className="text-xs font-medium text-muted">Steps</span>
-        {data.steps.map((step, i) => (
-          <Row key={i} onRemove={() => onChange({ ...data, steps: data.steps.filter((_, idx) => idx !== i) })}>
-            <TextField
-              label={`Step ${i + 1}`}
-              value={step.text}
-              onChange={(v) => {
-                const steps = [...data.steps];
-                steps[i] = { ...steps[i], text: v };
-                onChange({ ...data, steps });
+        <SortableList ids={stepIds} onReorder={(from, to) => onChange({ ...data, steps: arrayMove(data.steps, from, to) })}>
+          {data.steps.map((step, i) => (
+            <SortableRow
+              key={stepIds[i]}
+              onRemove={() => onChange({ ...data, steps: data.steps.filter((_, idx) => idx !== i) })}
+              reorder={{
+                id: stepIds[i],
+                label: `step ${i + 1}`,
+                onMoveUp: () => stepsReorder.moveTo(i, i - 1),
+                onMoveDown: () => stepsReorder.moveTo(i, i + 1),
+                canMoveUp: i > 0,
+                canMoveDown: i < data.steps.length - 1,
               }}
-            />
-            <ToggleField
-              label="Visible"
-              checked={step.visible}
-              onChange={(v) => {
-                const steps = [...data.steps];
-                steps[i] = { ...steps[i], visible: v };
-                onChange({ ...data, steps });
-              }}
-            />
-          </Row>
-        ))}
+            >
+              <TextField
+                label={`Step ${i + 1}`}
+                value={step.text}
+                onChange={(v) => {
+                  const steps = [...data.steps];
+                  steps[i] = { ...steps[i], text: v };
+                  onChange({ ...data, steps });
+                }}
+              />
+              <ToggleField
+                label="Visible"
+                checked={step.visible}
+                onChange={(v) => {
+                  const steps = [...data.steps];
+                  steps[i] = { ...steps[i], visible: v };
+                  onChange({ ...data, steps });
+                }}
+              />
+            </SortableRow>
+          ))}
+        </SortableList>
         <IconButton label="+ Add step" onClick={() => onChange({ ...data, steps: [...data.steps, { text: "", visible: true }] })} />
       </div>
 
@@ -289,6 +374,8 @@ function WhatToExpectPanel({ section, onChange, onSave }: { section: SectionStat
 
 function GuaranteesPanel({ section, onChange, onSave }: { section: SectionState<GuaranteesContent>; onChange: (v: GuaranteesContent) => void; onSave: () => void }) {
   const data = section.data;
+  const itemIds = useStableIds(data.items.length);
+  const itemsReorder = useReorder(data.items, (items) => onChange({ ...data, items }));
   return (
     <Panel
       title="Guarantees"
@@ -301,38 +388,51 @@ function GuaranteesPanel({ section, onChange, onSave }: { section: SectionState<
 
       <div className="flex flex-col gap-3">
         <span className="text-xs font-medium text-muted">Cards</span>
-        {data.items.map((it, i) => (
-          <Row key={i} onRemove={() => onChange({ ...data, items: data.items.filter((_, idx) => idx !== i) })}>
-            <TextField
-              label="Title"
-              value={it.title}
-              onChange={(v) => {
-                const items = [...data.items];
-                items[i] = { ...items[i], title: v };
-                onChange({ ...data, items });
+        <SortableList ids={itemIds} onReorder={(from, to) => onChange({ ...data, items: arrayMove(data.items, from, to) })}>
+          {data.items.map((it, i) => (
+            <SortableRow
+              key={itemIds[i]}
+              onRemove={() => onChange({ ...data, items: data.items.filter((_, idx) => idx !== i) })}
+              reorder={{
+                id: itemIds[i],
+                label: `card ${i + 1}`,
+                onMoveUp: () => itemsReorder.moveTo(i, i - 1),
+                onMoveDown: () => itemsReorder.moveTo(i, i + 1),
+                canMoveUp: i > 0,
+                canMoveDown: i < data.items.length - 1,
               }}
-            />
-            <TextAreaField
-              label="Text"
-              rows={2}
-              value={it.text}
-              onChange={(v) => {
-                const items = [...data.items];
-                items[i] = { ...items[i], text: v };
-                onChange({ ...data, items });
-              }}
-            />
-            <ToggleField
-              label="Visible"
-              checked={it.visible}
-              onChange={(v) => {
-                const items = [...data.items];
-                items[i] = { ...items[i], visible: v };
-                onChange({ ...data, items });
-              }}
-            />
-          </Row>
-        ))}
+            >
+              <TextField
+                label="Title"
+                value={it.title}
+                onChange={(v) => {
+                  const items = [...data.items];
+                  items[i] = { ...items[i], title: v };
+                  onChange({ ...data, items });
+                }}
+              />
+              <TextAreaField
+                label="Text"
+                rows={2}
+                value={it.text}
+                onChange={(v) => {
+                  const items = [...data.items];
+                  items[i] = { ...items[i], text: v };
+                  onChange({ ...data, items });
+                }}
+              />
+              <ToggleField
+                label="Visible"
+                checked={it.visible}
+                onChange={(v) => {
+                  const items = [...data.items];
+                  items[i] = { ...items[i], visible: v };
+                  onChange({ ...data, items });
+                }}
+              />
+            </SortableRow>
+          ))}
+        </SortableList>
         <IconButton
           label="+ Add card"
           onClick={() => onChange({ ...data, items: [...data.items, { title: "", text: "", iconKey: "shield-check", visible: true }] })}
@@ -401,7 +501,7 @@ function FeedbackUgcPanel({ section, onChange, onSave }: { section: SectionState
             onChange({ ...data, items });
           }
           return (
-            <Row key={i} onRemove={() => onChange({ ...data, items: data.items.filter((_, idx) => idx !== i) })}>
+            <PlainRow key={i} onRemove={() => onChange({ ...data, items: data.items.filter((_, idx) => idx !== i) })}>
               <TextField label="Source label (e.g. Client Feedback, Call Note, UGC)" value={it.source} onChange={(v) => updateItem({ source: v })} />
               <TextAreaField label="Quote" rows={2} value={it.quote} onChange={(v) => updateItem({ quote: v })} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -419,7 +519,7 @@ function FeedbackUgcPanel({ section, onChange, onSave }: { section: SectionState
                 <ToggleField label="Visible" checked={it.visible} onChange={(v) => updateItem({ visible: v })} />
                 <ToggleField label="Pinned (shown first)" checked={it.pinned} onChange={(v) => updateItem({ pinned: v })} />
               </div>
-            </Row>
+            </PlainRow>
           );
         })}
         <IconButton
