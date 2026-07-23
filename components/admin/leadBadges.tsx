@@ -18,7 +18,7 @@ import {
 // "booked" and "hot_lead") — a table full of pills is the wrong place for a
 // glow effect; the border + fill alone carry enough contrast.
 const BADGE_BASE =
-  "inline-flex h-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-3 text-[0.6875rem] font-medium uppercase tracking-wide leading-none";
+  "inline-flex h-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-2 text-[0.6875rem] font-medium uppercase tracking-wide leading-none";
 
 const STATUS_STYLES: Record<LeadStatus, string> = {
   new: "border-cyan/30 bg-cyan/10 text-cyan",
@@ -49,12 +49,13 @@ const QUALITY_STYLES: Record<LeadQuality, string> = {
 // labels, quality badges sit directly next to a right-aligned score number
 // in ScoreCell below, so every row needs its badge starting at the same x
 // position for the column to actually look aligned, not just individually
-// well-formed. Sized to fit "Needs Review", the longest label, with room
-// to spare.
+// well-formed. 105px is the smallest width that still fits "Needs Review"
+// (the longest label, ~102px at this padding/size) with a few px to spare —
+// verified by measuring the actual rendered badge, not estimated.
 export function QualityBadge({ score }: { score: number }) {
   const quality = getLeadQuality(score);
   return (
-    <span className={`${BADGE_BASE} min-w-[116px] ${QUALITY_STYLES[quality.value]}`}>
+    <span className={`${BADGE_BASE} min-w-[105px] ${QUALITY_STYLES[quality.value]}`}>
       {quality.label}
     </span>
   );

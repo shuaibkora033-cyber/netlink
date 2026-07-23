@@ -125,11 +125,14 @@ function ScoreCell({ score }: { score: number }) {
   const quality = getLeadQuality(score);
   const pct = Math.max(0, Math.min(100, score));
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-admin-surface-3" aria-hidden="true">
+    <div className="flex items-center gap-1.5">
+      <div className="h-1.5 w-9 shrink-0 overflow-hidden rounded-full bg-admin-surface-3" aria-hidden="true">
         <span className={`block h-full rounded-full ${QUALITY_BAR_COLOR[quality.value]}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-7 shrink-0 text-right font-mono text-admin-body font-semibold tabular-nums text-admin-text">
+      {/* Fixed at 26px — enough for "100" (the display never needs more than
+          3 digits even though the real scoring formula in lib/leads.ts
+          currently maxes out at 90) with a couple px to spare, measured. */}
+      <span className="w-[26px] shrink-0 text-right font-mono text-admin-body font-semibold tabular-nums text-admin-text">
         {score}
       </span>
       <QualityBadge score={score} />
@@ -170,7 +173,7 @@ function SortableTh({
     <th
       scope="col"
       aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-      className={`whitespace-nowrap px-4 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
+      className={`whitespace-nowrap px-3 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
     >
       <button
         type="button"
@@ -191,35 +194,35 @@ function SortableTh({
 function LeadRowSkeleton() {
   return (
     <tr className="h-[60px] border-b border-admin-border last:border-b-0" aria-hidden="true">
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-4 w-32" />
         <SkeletonBlock className="mt-1.5 h-3 w-20" />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-4 w-36" />
         <SkeletonBlock className="mt-1.5 h-3 w-24" />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-4 w-28" />
         <SkeletonBlock className="mt-1.5 h-3 w-20" />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-4 w-20" />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-[30px] w-24 rounded-full" />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <div className="flex items-center gap-2">
           <SkeletonBlock className="h-1.5 w-10 rounded-full" />
           <SkeletonBlock className="h-4 w-7" />
           <SkeletonBlock className="h-[30px] w-[116px] rounded-full" />
         </div>
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-4 w-16" />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-3 py-3 align-middle">
         <SkeletonBlock className="h-4 w-16" />
       </td>
     </tr>
@@ -230,7 +233,7 @@ function Th({ label, align = "left" }: { label: string; align?: "left" | "right"
   return (
     <th
       scope="col"
-      className={`whitespace-nowrap px-4 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
+      className={`whitespace-nowrap px-3 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
     >
       {label}
     </th>
@@ -541,7 +544,7 @@ export function LeadsList() {
                     key={lead.id}
                     className={`h-[60px] border-b border-admin-border last:border-b-0 transition-colors duration-200 ease-admin hover:bg-admin-surface-2 ${lead.archived ? "opacity-60" : ""}`}
                   >
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-3 py-3 align-middle">
                       <div className="flex min-w-0 items-center gap-2">
                         <Link
                           href={`/admin/leads/${lead.id}`}
@@ -563,7 +566,7 @@ export function LeadsList() {
                         {lead.company_name || "—"}
                       </p>
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-3 py-3 align-middle">
                       <p className="truncate text-admin-body text-admin-text" title={lead.email}>
                         {lead.email}
                       </p>
@@ -571,7 +574,7 @@ export function LeadsList() {
                         {lead.phone}
                       </p>
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-3 py-3 align-middle">
                       <p
                         className="truncate text-admin-body text-admin-text"
                         title={lead.service_needed || undefined}
@@ -586,21 +589,21 @@ export function LeadsList() {
                       </p>
                     </td>
                     <td
-                      className="truncate px-4 py-3 align-middle text-admin-body text-admin-text"
+                      className="truncate px-3 py-3 align-middle text-admin-body text-admin-text"
                       title={lead.industry || undefined}
                     >
                       {lead.industry || "—"}
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-3 py-3 align-middle">
                       <StatusBadge status={lead.status} />
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-3 py-3 align-middle">
                       <ScoreCell score={lead.lead_score} />
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 align-middle text-admin-body text-admin-text">
+                    <td className="whitespace-nowrap px-3 py-3 align-middle text-admin-body text-admin-text">
                       {formatDate(lead.created_at)}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 align-middle text-admin-body text-admin-text">
+                    <td className="whitespace-nowrap px-3 py-3 align-middle text-admin-body text-admin-text">
                       {formatDate(lead.follow_up_date)}
                     </td>
                   </tr>
