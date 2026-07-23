@@ -48,15 +48,17 @@ const PAGE_SIZE = 20;
 // body rows can never drift out of alignment the way independently-computed
 // auto-layout widths sometimes do.
 //
-// Each width is sized from measured content, not guessed: e.g. Industry was
-// widened from an earlier pass after measuring that "Financial Services" (a
-// real option, not an edge case) didn't actually fit at the old width, and
-// Status/Score were checked against the longest real label ("Not
-// Qualified", "Needs Review") rendered with its actual classes. Score is the
-// widest column on purpose — bar + right-aligned number + quality badge
-// (itself min 116px, see leadBadges.tsx) have to sit on one line with no
-// wrapping, which takes more room than any other column.
-const COLUMN_WIDTHS = [165, 180, 155, 145, 150, 236, 95, 95] as const;
+// Each width is sized from measured content, not guessed — every column
+// (and every cell's px-3 padding, and the quality badge's min-width in
+// leadBadges.tsx) was checked against the longest real value ("Not
+// Qualified", "Needs Review", "Financial Services", the longest email in
+// today's data) rendered with its actual classes, so the total fits inside
+// the wide admin container's available width (1110px) at 1440px with no
+// internal table scroll. Score is still the widest column on purpose — bar
+// + right-aligned number + quality badge (min 105px, see leadBadges.tsx)
+// have to sit on one line with no wrapping, which takes more room than any
+// other column even after tightening.
+const COLUMN_WIDTHS = [150, 160, 148, 140, 130, 203, 88, 88] as const;
 const TABLE_MIN_WIDTH = COLUMN_WIDTHS.reduce((a, b) => a + b, 0);
 
 const selectCls =
@@ -213,10 +215,10 @@ function LeadRowSkeleton() {
         <SkeletonBlock className="h-[30px] w-24 rounded-full" />
       </td>
       <td className="px-3 py-3 align-middle">
-        <div className="flex items-center gap-2">
-          <SkeletonBlock className="h-1.5 w-10 rounded-full" />
-          <SkeletonBlock className="h-4 w-7" />
-          <SkeletonBlock className="h-[30px] w-[116px] rounded-full" />
+        <div className="flex items-center gap-1.5">
+          <SkeletonBlock className="h-1.5 w-9 rounded-full" />
+          <SkeletonBlock className="h-4 w-[26px]" />
+          <SkeletonBlock className="h-[30px] w-[105px] rounded-full" />
         </div>
       </td>
       <td className="px-3 py-3 align-middle">

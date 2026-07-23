@@ -134,6 +134,23 @@ export async function PATCH(request: Request) {
   const data = deepNormalize(body.data);
   const validationError = validateSection(section, data);
   if (validationError) {
+    // Temporary diagnostic for the stats-validation investigation — shape
+    // only (keys/types), never the actual field values.
+    if (section === "stats") {
+      console.error("[homepage] Invalid stats payload:", {
+        receivedType: Array.isArray(data) ? "array" : typeof data,
+        itemCount: Array.isArray(data) ? data.length : undefined,
+        itemShapes: Array.isArray(data)
+          ? data.map((item) =>
+              item && typeof item === "object" && !Array.isArray(item)
+                ? Object.fromEntries(
+                    Object.entries(item as Record<string, unknown>).map(([k, v]) => [k, typeof v])
+                  )
+                : typeof item
+            )
+          : undefined,
+      });
+    }
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
