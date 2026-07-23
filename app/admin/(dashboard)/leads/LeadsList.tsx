@@ -43,6 +43,22 @@ type LoadState = "loading" | "ready" | "error";
 
 const PAGE_SIZE = 20;
 
+// Fixed column widths (table-layout: fixed, via <colgroup> below) — the
+// single source of truth for how wide each column is, so the header row and
+// body rows can never drift out of alignment the way independently-computed
+// auto-layout widths sometimes do.
+//
+// Each width is sized from measured content, not guessed: e.g. Industry was
+// widened from an earlier pass after measuring that "Financial Services" (a
+// real option, not an edge case) didn't actually fit at the old width, and
+// Status/Score were checked against the longest real label ("Not
+// Qualified", "Needs Review") rendered with its actual classes. Score is the
+// widest column on purpose — bar + right-aligned number + quality badge
+// (itself min 116px, see leadBadges.tsx) have to sit on one line with no
+// wrapping, which takes more room than any other column.
+const COLUMN_WIDTHS = [165, 180, 155, 145, 150, 236, 95, 95] as const;
+const TABLE_MIN_WIDTH = COLUMN_WIDTHS.reduce((a, b) => a + b, 0);
+
 const selectCls =
   "w-full cursor-pointer rounded-xl border border-admin-border bg-admin-surface px-3.5 py-2.5 text-admin-body text-admin-text outline-none transition-colors duration-200 ease-admin focus:border-admin-accent/50 sm:w-auto";
 
@@ -100,17 +116,22 @@ const QUALITY_BAR_COLOR: Record<LeadQuality, string> = {
   low_fit: "bg-admin-text-3",
 };
 
+// One row — bar, number, badge — instead of the number+bar stacked over the
+// badge. The bar's container width and the number's column width are both
+// fixed regardless of value, so a score of 0 and a score of 100 start their
+// badge at the exact same x position; only the bar's fill and the digits
+// themselves vary.
 function ScoreCell({ score }: { score: number }) {
   const quality = getLeadQuality(score);
   const pct = Math.max(0, Math.min(100, score));
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-admin-surface-3" aria-hidden="true">
-          <span className={`block h-full rounded-full ${QUALITY_BAR_COLOR[quality.value]}`} style={{ width: `${pct}%` }} />
-        </div>
-        <span className="font-mono text-admin-body font-semibold tabular-nums text-admin-text">{score}</span>
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-admin-surface-3" aria-hidden="true">
+        <span className={`block h-full rounded-full ${QUALITY_BAR_COLOR[quality.value]}`} style={{ width: `${pct}%` }} />
       </div>
+      <span className="w-7 shrink-0 text-right font-mono text-admin-body font-semibold tabular-nums text-admin-text">
+        {score}
+      </span>
       <QualityBadge score={score} />
     </div>
   );
@@ -149,7 +170,7 @@ function SortableTh({
     <th
       scope="col"
       aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-      className={`px-4 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
+      className={`whitespace-nowrap px-4 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
     >
       <button
         type="button"
@@ -164,37 +185,41 @@ function SortableTh({
 }
 
 /** Mirrors a real row's 8 columns (name+company, contact, service+budget,
- * industry, status pill, score bar, created date, follow-up date) so the
- * table doesn't reflow when real rows arrive. */
+ * industry, status pill, score bar+number+badge, created date, follow-up
+ * date) — including the fixed row height and the inline score layout — so
+ * the table doesn't reflow when real rows arrive. */
 function LeadRowSkeleton() {
   return (
-    <tr className="border-b border-admin-border last:border-b-0" aria-hidden="true">
-      <td className="px-4 py-3 align-top">
+    <tr className="h-[60px] border-b border-admin-border last:border-b-0" aria-hidden="true">
+      <td className="px-4 py-3 align-middle">
         <SkeletonBlock className="h-4 w-32" />
         <SkeletonBlock className="mt-1.5 h-3 w-20" />
       </td>
-      <td className="px-4 py-3 align-top">
+      <td className="px-4 py-3 align-middle">
         <SkeletonBlock className="h-4 w-36" />
         <SkeletonBlock className="mt-1.5 h-3 w-24" />
       </td>
-      <td className="px-4 py-3 align-top">
+      <td className="px-4 py-3 align-middle">
         <SkeletonBlock className="h-4 w-28" />
         <SkeletonBlock className="mt-1.5 h-3 w-20" />
       </td>
-      <td className="px-4 py-3 align-top">
+      <td className="px-4 py-3 align-middle">
         <SkeletonBlock className="h-4 w-20" />
       </td>
-      <td className="px-4 py-3 align-top">
-        <SkeletonBlock className="h-5 w-16 rounded-full" />
+      <td className="px-4 py-3 align-middle">
+        <SkeletonBlock className="h-[30px] w-24 rounded-full" />
       </td>
-      <td className="px-4 py-3 align-top">
-        <SkeletonBlock className="h-1.5 w-14 rounded-full" />
-        <SkeletonBlock className="mt-1.5 h-4 w-10" />
+      <td className="px-4 py-3 align-middle">
+        <div className="flex items-center gap-2">
+          <SkeletonBlock className="h-1.5 w-10 rounded-full" />
+          <SkeletonBlock className="h-4 w-7" />
+          <SkeletonBlock className="h-[30px] w-[116px] rounded-full" />
+        </div>
       </td>
-      <td className="px-4 py-3 align-top">
+      <td className="px-4 py-3 align-middle">
         <SkeletonBlock className="h-4 w-16" />
       </td>
-      <td className="px-4 py-3 align-top">
+      <td className="px-4 py-3 align-middle">
         <SkeletonBlock className="h-4 w-16" />
       </td>
     </tr>
@@ -205,7 +230,7 @@ function Th({ label, align = "left" }: { label: string; align?: "left" | "right"
   return (
     <th
       scope="col"
-      className={`px-4 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
+      className={`whitespace-nowrap px-4 py-3 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3 ${align === "right" ? "text-right" : "text-left"}`}
     >
       {label}
     </th>
@@ -470,7 +495,15 @@ export function LeadsList() {
 
       {loadState !== "error" && (
         <div className="overflow-x-auto rounded-2xl border border-admin-border">
-          <table className="w-full min-w-[880px] border-collapse text-admin-body">
+          <table
+            className="w-full table-fixed border-collapse text-admin-body"
+            style={{ minWidth: TABLE_MIN_WIDTH }}
+          >
+            <colgroup>
+              {COLUMN_WIDTHS.map((w, i) => (
+                <col key={i} style={{ width: `${w}px` }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="border-b border-admin-border bg-admin-surface">
                 <SortableTh label="Lead" column="full_name" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
@@ -506,39 +539,70 @@ export function LeadsList() {
                 leads.map((lead) => (
                   <tr
                     key={lead.id}
-                    className={`border-b border-admin-border last:border-b-0 transition-colors duration-200 ease-admin hover:bg-admin-surface-2 ${lead.archived ? "opacity-60" : ""}`}
+                    className={`h-[60px] border-b border-admin-border last:border-b-0 transition-colors duration-200 ease-admin hover:bg-admin-surface-2 ${lead.archived ? "opacity-60" : ""}`}
                   >
-                    <td className="px-4 py-3 align-top">
-                      <Link
-                        href={`/admin/leads/${lead.id}`}
-                        className="font-semibold text-admin-text underline-offset-2 hover:text-admin-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 rounded"
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Link
+                          href={`/admin/leads/${lead.id}`}
+                          title={lead.full_name}
+                          className="min-w-0 truncate font-semibold text-admin-text underline-offset-2 hover:text-admin-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-accent/40 rounded"
+                        >
+                          {lead.full_name}
+                        </Link>
+                        {lead.archived && (
+                          <span className="shrink-0 inline-flex items-center rounded-full border border-admin-border-strong bg-admin-surface-2 px-2 py-0.5 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3">
+                            Archived
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className="mt-0.5 truncate text-admin-caption text-admin-text-3"
+                        title={lead.company_name || undefined}
                       >
-                        {lead.full_name}
-                      </Link>
-                      {lead.archived && (
-                        <span className="ml-2 inline-flex items-center rounded-full border border-admin-border-strong bg-admin-surface-2 px-2 py-0.5 text-admin-caption font-semibold uppercase tracking-wide text-admin-text-3">
-                          Archived
-                        </span>
-                      )}
-                      <p className="mt-0.5 truncate text-admin-caption text-admin-text-3">{lead.company_name || "—"}</p>
+                        {lead.company_name || "—"}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 align-top">
-                      <p className="text-admin-body text-admin-text">{lead.email}</p>
-                      <p className="text-admin-caption text-admin-text-3">{lead.phone}</p>
+                    <td className="px-4 py-3 align-middle">
+                      <p className="truncate text-admin-body text-admin-text" title={lead.email}>
+                        {lead.email}
+                      </p>
+                      <p className="mt-0.5 truncate text-admin-caption text-admin-text-3" title={lead.phone}>
+                        {lead.phone}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 align-top">
-                      <p className="text-admin-body text-admin-text">{lead.service_needed || "—"}</p>
-                      <p className="text-admin-caption text-admin-text-3">{lead.monthly_marketing_budget || "—"}</p>
+                    <td className="px-4 py-3 align-middle">
+                      <p
+                        className="truncate text-admin-body text-admin-text"
+                        title={lead.service_needed || undefined}
+                      >
+                        {lead.service_needed || "—"}
+                      </p>
+                      <p
+                        className="mt-0.5 truncate text-admin-caption text-admin-text-3"
+                        title={lead.monthly_marketing_budget || undefined}
+                      >
+                        {lead.monthly_marketing_budget || "—"}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 align-top text-admin-body text-admin-text">{lead.industry || "—"}</td>
-                    <td className="px-4 py-3 align-top">
+                    <td
+                      className="truncate px-4 py-3 align-middle text-admin-body text-admin-text"
+                      title={lead.industry || undefined}
+                    >
+                      {lead.industry || "—"}
+                    </td>
+                    <td className="px-4 py-3 align-middle">
                       <StatusBadge status={lead.status} />
                     </td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-3 align-middle">
                       <ScoreCell score={lead.lead_score} />
                     </td>
-                    <td className="px-4 py-3 align-top text-admin-body text-admin-text">{formatDate(lead.created_at)}</td>
-                    <td className="px-4 py-3 align-top text-admin-body text-admin-text">{formatDate(lead.follow_up_date)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 align-middle text-admin-body text-admin-text">
+                      {formatDate(lead.created_at)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 align-middle text-admin-body text-admin-text">
+                      {formatDate(lead.follow_up_date)}
+                    </td>
                   </tr>
                 ))}
             </tbody>

@@ -32,3 +32,48 @@ export function isNonEmptyString(value: unknown, maxLength = 5000): value is str
 export function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value is T {
   return typeof value === "string" && (allowed as readonly string[]).includes(value);
 }
+
+// ── List/array shape helpers ──────────────────────────────────────────────
+// Shared by every CMS route that stores a repeatable list (stats, growth
+// steps, bullets, cards, feedback items, guarantees, services, FAQs, case
+// studies, industries) so "is this a list" and "is each item shaped right"
+// aren't reimplemented slightly differently per route.
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isArrayOfStrings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
+export function isArrayOfRecords(value: unknown): value is Record<string, unknown>[] {
+  return Array.isArray(value) && value.every(isRecord);
+}
+
+/** Generic "every item in this array passes `check`" — use for typed lists. */
+export function isArrayOf<T>(value: unknown, check: (item: unknown) => item is T): value is T[] {
+  return Array.isArray(value) && value.every(check);
+}
+
+export type StatItem = { value: string | number; label: string; suffix?: string };
+export type GrowthStepItem = { num: string; title: string; text: string };
+
+/** Homepage stat card: value (string or number), label (string), suffix (optional string). */
+export function isValidStatItem(value: unknown): value is StatItem {
+  if (!isRecord(value)) return false;
+  const validValue = typeof value.value === "string" || typeof value.value === "number";
+  const validLabel = typeof value.label === "string";
+  const validSuffix = value.suffix === undefined || typeof value.suffix === "string";
+  return validValue && validLabel && validSuffix;
+}
+
+/** Homepage/process growth step: num, title, text — all strings. */
+export function isValidGrowthStepItem(value: unknown): value is GrowthStepItem {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.num === "string" &&
+    typeof value.title === "string" &&
+    typeof value.text === "string"
+  );
+}

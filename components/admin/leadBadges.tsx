@@ -11,12 +11,20 @@ import {
 // "Quality") via BadgeGroup below, and deliberately different colors, so
 // they never read as the same value.
 
+// Shared shape for every status/quality pill — one place controls height,
+// padding, radius, border weight, and vertical centering so the two badge
+// families always read as the same system even though their color maps
+// differ. Deliberately no glow/shadow here (earlier versions had one on
+// "booked" and "hot_lead") — a table full of pills is the wrong place for a
+// glow effect; the border + fill alone carry enough contrast.
+const BADGE_BASE =
+  "inline-flex h-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-3 text-[0.6875rem] font-medium uppercase tracking-wide leading-none";
+
 const STATUS_STYLES: Record<LeadStatus, string> = {
   new: "border-cyan/30 bg-cyan/10 text-cyan",
   contacted: "border-blue-400/30 bg-blue-400/10 text-blue-400",
   qualified: "border-emerald-400/30 bg-emerald-400/10 text-emerald-400",
-  booked:
-    "border-green-400/40 bg-green-400/15 text-green-300 shadow-[0_0_16px_-4px_rgba(74,222,128,0.5)]",
+  booked: "border-green-400/40 bg-green-400/15 text-green-300",
   not_qualified: "border-amber-400/30 bg-amber-400/10 text-amber-300",
   lost: "border-red-500/25 bg-red-500/[0.06] text-red-400/80",
 };
@@ -24,27 +32,29 @@ const STATUS_STYLES: Record<LeadStatus, string> = {
 export function StatusBadge({ status }: { status: LeadStatus }) {
   const label = LEAD_STATUSES.find((s) => s.value === status)?.label ?? status;
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-wide ${STATUS_STYLES[status] ?? STATUS_STYLES.new}`}
-    >
+    <span className={`${BADGE_BASE} ${STATUS_STYLES[status] ?? STATUS_STYLES.new}`}>
       {label}
     </span>
   );
 }
 
 const QUALITY_STYLES: Record<LeadQuality, string> = {
-  hot_lead: "border-neon/40 bg-neon/15 text-neon shadow-[0_0_20px_-4px_rgba(13,253,209,0.55)]",
+  hot_lead: "border-neon/40 bg-neon/10 text-neon",
   qualified: "border-cyan/30 bg-cyan/10 text-cyan",
   needs_review: "border-amber-400/30 bg-amber-400/10 text-amber-300",
   low_fit: "border-white/15 bg-white/[0.04] text-muted",
 };
 
+// Fixed minimum width (not just shared height/padding) — unlike status
+// labels, quality badges sit directly next to a right-aligned score number
+// in ScoreCell below, so every row needs its badge starting at the same x
+// position for the column to actually look aligned, not just individually
+// well-formed. Sized to fit "Needs Review", the longest label, with room
+// to spare.
 export function QualityBadge({ score }: { score: number }) {
   const quality = getLeadQuality(score);
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-wide ${QUALITY_STYLES[quality.value]}`}
-    >
+    <span className={`${BADGE_BASE} min-w-[116px] ${QUALITY_STYLES[quality.value]}`}>
       {quality.label}
     </span>
   );
